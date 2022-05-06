@@ -116,6 +116,12 @@ Patterns codify what people consider to be a best-practice approach to a given p
 *Facade*
 Provide a unified interface to a set of interfaces in a subsystem. Facade
 defines a higher-level interface that makes the subsystem easier to use.
+Collaborations
+* Clients communicate with the subsystem by sending requests to Facade, which
+forwards them to the appropriate subsystem object(s). Although the subsystem
+objects perform the actual work, the facade may have to do work of its own to
+translate its interface to subsystem interfaces.
+* Clients that use the facade don't have to access its subsystem objects directly.
 Python: No need for a class, just organize code in high-level packages and write
 Facade API in `__init__.py`.
 [Video](https://www.youtube.com/watch?v=G5OeYHCJuv0)
@@ -125,20 +131,50 @@ Decouple an abstraction from its implementation so that the two can vary indepen
 Inheritance binds an implementation to the abstraction permanently, which
 makes it difficult to modify, extend, and reuse abstractions and
 implementations independently.
+Collaborations: Abstraction forwards client requests to its Implementor object.
 
 *Strategy*
 Define a family of algorithms, encapsulate each one, and make them interchange-
 able. Strategy lets the algorithm vary independently from clients that use it.
+[Python example](https://auth0.com/blog/strategy-design-pattern-in-python/)
+Collaborations
+* Strategy and Context interact to implement the chosen algorithm. A context
+may pass all data required by the algorithm to the strategy when the algorithm
+is called. Alternatively, the context can pass itself as an argument to
+Strategy operations. That lets the strategy call back on the context as
+required.
+* A context forwards requests from its clients to its strategy.
+Clients usually create and pass a ConcreteStrategy object to the context;
+thereafter, clients interact with the context exclusively. There is often a
+family of ConcreteStrategy classes for a client to choose from.
 
 *Mediator* (maybe, for complex communications in the coupled PDE system in SAFOR)
 Define an object that encapsulates how a set of objects interact. Mediator
 promotes loose coupling by keeping objects from referring to each other
 explicitly, and it lets you vary their interaction independently.
+Collaborations: Colleagues send and receive requests from a Mediator object.
+The mediator implements the cooperative behavior by routing requests between
+the appropriate colleague(s).
+Issues: There's **no need to define an abstract Mediator class** when colleagues
+work with only one mediator. Can be implemented as an Observer.
 
 *Observer* (maybe, to provide a callback, e.g. write ooutput at particular time)
 Define a one-to-many dependency between objects so that when one object changes
 state, all its dependents are notified and updated automatically.
 Observer provide a callback for notification of events/changes to data.
+A simpler approach is to just implement the callback since the Observer pattern
+implies a synchronization between a subject and its observers that is not necessary
+for just writing output.
+
+*Abstract Factory*
+Provide an interface for creating families of related or dependent objects
+without specifying their concrete classes.
+
+*Factory*
+Define an interface for creating an object, but let subclasses decide which
+class to instantiate. Factory Method lets a class defer instantiation to
+subclasses.
+
 
 A *command object* is an object that encapsulates all the information required to
 call another method later. The *command pattern* is a way of using this object in
@@ -190,7 +226,7 @@ existing code to support new requirements.
 
 ### Scientific computing patterns
 From [this article](https://ccc.inaoep.mx/~grodrig/Descargas/429-155.pdf)
-1. The integrator–class structure must be reusable with- out modification.
+1. The integrator–class structure must be reusable without modification.
 2. The integrator–class must not contain details of the integrated model.
 3. The differential equations are located outside the integrator–class.
 4. The integrator–class must be extensible. New integrations methods can be
@@ -198,7 +234,7 @@ From [this article](https://ccc.inaoep.mx/~grodrig/Descargas/429-155.pdf)
 5. The numerical methods are reusable for a large set of ordinary differential equations.
 6. The selected numerical method is instantiated at compilation time.
 
-Scientific computing patterns capture the fundamen- tal characteristics of the
+Scientific computing patterns capture the fundamental characteristics of the
 problem to be solved. They are focused on “what” and not in “how ”.
 
 ### Cython
@@ -229,7 +265,7 @@ Unittest, doctest, functional, regression tests, automatic
 ## TODO:
 1. Simplify and refactor the code.
     * Write abstract flexible and extensible solver and then wrap critical methods in `numba`
-        * Test performance of such wrappers
+        * Test performance of such wrappers show that the strategy leads to speed up.
     * OOP approach with `numba`: @staticmethod and/or wrappers. See
         [this post](https://stackoverflow.com/questions/41769100/how-do-i-use-numba-on-a-member-function-of-a-class)
     * Use classes and `Cython` (see Langtangen&Linge 2017 and hil:~/Codes/fdm-book)
