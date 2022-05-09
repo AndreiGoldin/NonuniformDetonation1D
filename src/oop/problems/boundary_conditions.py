@@ -70,3 +70,29 @@ def boundary_lfor_zero(mesh, array):
     array[:, mesh.left_ghosts] = np.zeros(mesh.n_ghosts)
     array[:, mesh.right_ghosts] = np.zeros(mesh.n_ghosts)
     return array
+
+
+def boundary_lfor_zero_grad(mesh, array):
+    array[:, mesh.domain[0]] = array[:, mesh.domain[1]]
+    array[:, mesh.domain[-1]] = array[:, mesh.domain[-2]]
+    array[:, mesh.left_ghosts] = array[:, mesh.domain[0]].reshape(-1,1)
+    array[:, mesh.right_ghosts] = array[:,mesh.domain[-1]].reshape(-1,1)
+    return array
+
+
+def boundary_periodic_right_going(mesh,array):
+    array[:, mesh.domain[0]] = array[:, mesh.domain[-1]]
+    array[:, mesh.left_ghosts] = array[:, mesh.domain[-mesh.n_ghosts-1:-1]]
+    array[:, mesh.right_ghosts] = array[:, mesh.domain[1:mesh.n_ghosts+1]]
+    return array
+
+
+def boundary_periodic_left_going(mesh,array):
+    array[:, mesh.domain[-1]] = array[:, mesh.domain[0]]
+    array[:, mesh.left_ghosts] = array[:, mesh.domain[-mesh.n_ghosts-1:-1]]
+    array[:, mesh.right_ghosts] = array[:, mesh.domain[1:mesh.n_ghosts+1]]
+    return array
+
+
+def boundary_none(mesh, array):
+    return array

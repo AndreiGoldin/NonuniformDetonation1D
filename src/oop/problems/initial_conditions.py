@@ -18,7 +18,7 @@ def initial_ZND(nodes, params):
         omega = (1 - y) * np.exp(-act_energy / p_lam / V_lam)
         return rate_const * omega / np.abs(u_lam - D_CJ)
 
-    # Specifying max_step prevents warnings about negtive numbers in sqrt
+    # Specifying max_step prevents warnings about negative numbers in sqrt
     dx = np.abs(nodes[1]-nodes[0])
     sol = solve_ivp(RHS_lambda,t_span=[0.,-min(nodes)],y0=[0.],t_eval=-nodes[::-1],
                     method='RK45', max_step=dx/2,rtol=1e-13, atol=1e-13)
@@ -35,6 +35,18 @@ def initial_ZND(nodes, params):
 def initial_sine(nodes, params):
     L = max(nodes)-min(nodes)
     return np.sin(2.*np.pi*nodes/L)
+
+
+def initial_henrick2005(nodes, params):
+    return np.sin(np.pi*nodes-np.sin(np.pi*nodes)/np.pi)
+
+
+def initial_shu_osher(nodes, params):
+    init_cond = np.zeros((3, np.size(nodes)))
+    init_cond[0,:] = 27./7.*np.ones_like(nodes)*(nodes<-4) + (1.+0.2*np.sin(5*nodes))*(nodes>=-4)
+    init_cond[1,:] = 4.*np.sqrt(35)/9*np.ones_like(nodes)*(nodes<-4)
+    init_cond[2,:] = 31./3.*np.ones_like(nodes)*(nodes<-4) + np.ones_like(nodes)*(nodes>=-4)
+    return init_cond
 
 
 if __name__=='__main__':

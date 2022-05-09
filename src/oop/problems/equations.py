@@ -40,6 +40,25 @@ class Equations:
         return f'This is the {self.__class__.__name__} equations with parameters:\n {self.parameters}'
 
 
+@Equations.register_equations('Advection')
+class Advection(Equations):
+    def __init__(self, params={'speed':1.0}):
+        self.parameters = params
+        self.speed = params['speed']
+
+    def convert_to_phys_vars(self, array):
+        return array
+
+    def convert_to_cons_vars(self, array):
+        return array
+
+    def calculate_fluxes(self, array):
+        return self.speed*array
+
+    def calculate_sources(self, array):
+        return np.zeros_like(array)
+
+
 @Equations.register_equations('Burgers')
 class Burgers(Equations):
     def __init__(self, params):
@@ -58,8 +77,79 @@ class Burgers(Equations):
         return np.zeros_like(array)
 
 
+@Equations.register_equations('Euler')
 class Euler(Equations):
-    pass
+    """
+    Physical variables: rho, u, p, lambda
+    Conservative variables: rho, rho*u, rho*(e + u^2/2), rho*lambda
+    """
+    def __init__(self, params: dict):
+        # Prevent the absense of equations' parameters
+        for param in ['gamma']:
+            if param not in params.keys():
+                raise AttributeError(f'Parameter {param} is not defined for the reactive Euler equations.')
+        self.gamma = params['gamma']
+        self.parameters = params
+
+    def convert_to_phys_vars(self, array):
+        """ Transform array of conserved variables to the array of physical
+        variables"""
+        phys_array = np.copy(array)
+        # Velocity
+        phys_array[1, :] = array[1, :] / array[0, :]
+        # Pressure
+        phys_array[2, :] = (self.gamma - 1) * (
+            array[2, :]
+            - 0.5 * array[1, :] * array[1, :] / array[0, :]
+        )
+        return phys_array
+
+    def convert_to_cons_vars(self, array):
+        """ Transform array of physical variables to the array of conservative
+        variables"""
+        cons_array = np.copy(array)
+        # rho*u
+        cons_array[1, :] = array[0, :] * array[1, :]
+        # Energy
+        cons_array[2, :] = (
+            array[2, :] / (self.gamma - 1)
+            + 0.5
+            * cons_array[1, :]
+            * cons_array[1, :]
+            / array[0, :]
+        )
+        return cons_array
+
+    def calculate_fluxes(self, array):
+        """ Calculate exact fluxes from the conserved variables """
+        flux_array = np.empty_like(array)
+        pressure = (self.gamma - 1) * ( array[2, :]
+            - 0.5 * array[1, :] * array[1, :] / array[0, :])
+        flux_array[0, :] = array[1, :]
+        flux_array[1, :] = array[1, :] * array[1, :] / array[0, :] + pressure
+        flux_array[2, :] = array[1, :] * (array[2, :] + pressure) / array[0, :]
+        return flux_array
+
+    def calculate_sources(self, array):
+        """ Calculate the right hand side of the equations from the conserved variables"""
+        source = np.zeros_like(array)
+        return source
+
+    def calculate_jac_norm(self, array):
+        """ Necessary for Lax-Friedrichs splitting for flux approximation
+        Input array contains the conservative variables"""
+        u = array[1, :] / array[0, :]
+        P = (self.gamma - 1.0) * (
+            array[2, :] - 0.5 * array[1, :] * array[1, :] / array[0, :])
+        # H = (array[2, :] + P) / array[0, :]
+        # c = np.sqrt((self.gamma - 1.0) * (H - 0.5 * u * u))
+        sound_speed = np.sqrt(self.gamma*P/array[0,:])
+
+        Evals = np.empty_like(array)
+        Evals[0, :] = u - sound_speed
+        Evals[1, :] = u
+        Evals[2, :] = u + sound_speed
+        return np.max(Evals, axis=0)
 
 
 @Equations.register_equations('ReactiveEuler')
@@ -100,8 +190,8 @@ class ReactiveEuler(Equations):
     def convert_to_phys_vars(self, array):
         """ Transform array of conserved variables to the array of physical
         variables"""
-        phys_array = np.empty_like(array)
-        # Density
+        phys_array = np.copy(array)
+        # Velocity
         phys_array[1, :] = array[1, :] / array[0, :]
         # Pressure
         phys_array[2, :] = (self.gamma - 1) * (
@@ -116,17 +206,17 @@ class ReactiveEuler(Equations):
     def convert_to_cons_vars(self, array):
         """ Transform array of physical variables to the array of conservative
         variables"""
-        cons_array = np.empty_like(array)
+        cons_array = np.copy(array)
         # rho*u
         cons_array[1, :] = array[0, :] * array[1, :]
         # Energy
         cons_array[2, :] = (
             array[2, :] / (self.gamma - 1)
             + 0.5
-            * transformed_array[1, :]
-            * transformed_array[1, :]
+            * cons_array[1, :]
+            * cons_array[1, :]
             / array[0, :]
-            - self.heat_release * transformed_array[3, :]
+            - self.heat_release * cons_array[3, :]
         )
         # rho*lambda
         cons_array[3, :] = array[0, :] * array[3, :]

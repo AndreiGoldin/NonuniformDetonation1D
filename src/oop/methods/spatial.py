@@ -25,7 +25,29 @@ class SpaceMethod:
         pass
 
     def __repr__(self):
-        return f'This is the {self.__class__.__name__} methos with parameters:\n {self.parameters}'
+        return f'This is the {self.__class__.__name__} method with parameters:\n {self.parameters}'
+
+
+@SpaceMethod.register_method('Upwind')
+class Upwind(SpaceMethod):
+    def __init__(self, params):
+        self.parameters = params
+
+    def flux_approx(self, array, speed):
+        flux_approx = np.copy(array)
+        flux_approx[:, 1:-1] = -speed[:, 1:-1]*(array[:, 2:]-array[:, 1:-1])*(speed[:, 1:-1]<0.) \
+                - speed[:, 1:-1]*(array[:, 1:-1]-array[:, :-2])*(speed[:, 1:-1]>=0.)
+        return flux_approx
+
+
+@SpaceMethod.register_method('UpstreamCentral')
+class UpstreamCentral(SpaceMethod):
+    def __init__(self, params):
+        self.parameters = params
+
+    def flux_approx(self, nodeim2,nodeim1,nodei,nodeip1,nodeip2):
+        flux_approx = 1/60.*(2.*nodeim2-13.*nodeim1+47.*nodei+27.*nodeip1-3.*nodeip2)
+        return flux_approx
 
 
 @SpaceMethod.register_method('WENO5M')
@@ -35,6 +57,7 @@ class WENO5M(SpaceMethod):
             raise AttributeError(f'Parameter eps is not defined for WENO5M method')
         self.parameters = params
         self.eps = params['eps']
+        self.p = params['p']
 
     def source_approx():
         pass
@@ -48,7 +71,7 @@ class WENO5M(SpaceMethod):
         return ( omega * (w_k + w_k**2 - 3. * w_k * omega + omega**2) / (w_k**2 + (1. - 2. * w_k) * omega))
 
     def flux_approx(self, nodeim2, nodeim1, nodei, nodeip1, nodeip2):
-        # Interpolation of the fluxes
+        # Interpolation of the fluxes on substencils
         q_im1 = 1.0 / 3.0 * nodeim2 - 7.0 / 6.0 * nodeim1 + 11.0 / 6.0 * nodei
         q_i = -1.0 / 6.0 * nodeim1 + 5.0 / 6.0 * nodei + 1.0 / 3.0 * nodeip1
         q_ip1 = 1.0 / 3.0 * nodei + 5.0 / 6.0 * nodeip1 - 1.0 / 6.0 * nodeip2
@@ -66,9 +89,9 @@ class WENO5M(SpaceMethod):
             + 0.25 * (3.0 * nodei - 4.0 * nodeip1 + nodeip2) ** 2
         )
         # Weights for stencils
-        alpha_im1 = 1.0 / 10.0 / (self.eps + beta_im1) ** 2
-        alpha_i = 6.0 / 10.0 / (self.eps + beta_i) ** 2
-        alpha_ip1 = 3.0 / 10.0 / (self.eps + beta_ip1) ** 2
+        alpha_im1 = 1.0 / 10.0 / (self.eps + beta_im1) ** self.p
+        alpha_i = 6.0 / 10.0 / (self.eps + beta_i) ** self.p
+        alpha_ip1 = 3.0 / 10.0 / (self.eps + beta_ip1) ** self.p
         alpha_sum = alpha_im1 + alpha_i + alpha_ip1
         # Modified weights
         mod_omega_0 = self.g_numba(1.0 / 10.0, alpha_im1 / alpha_sum)
