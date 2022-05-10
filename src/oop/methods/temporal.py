@@ -1,5 +1,6 @@
 # Contains methods for time integration
 import numpy as np
+import numba as nb
 
 class TimeMethod:
     pass
@@ -11,7 +12,7 @@ def explicit_euler(array, rhs, set_bc, dt):
     return update
 
 
-def tvd_rk3(array, rhs, set_bc, dt):
+def _tvd_rk3(array, rhs, set_bc, dt):
     update = array + dt*rhs(array)
     update = set_bc(update)
     update1 = 3./4.*array + 1./4.*update + 1./4.*dt*rhs(update)
@@ -19,6 +20,21 @@ def tvd_rk3(array, rhs, set_bc, dt):
     update2 = 1./3.*array + 2./3.*update1 + 2./3.*dt*rhs(update1)
     update2 = set_bc(update2)
     return update2
+
+
+def tvd_rk3(rhs, set_bc):
+    """ Closure for numba version of tvd_rk3"""
+    set_bc = nb.njit(set_bc, cache=True)
+    rhs = nb.njit(rhs, cache=True)
+    def inner(array, dt):
+        update = array + dt*rhs(array)
+        update = set_bc(update)
+        update1 = 3./4.*array + 1./4.*update + 1./4.*dt*rhs(update)
+        update1 = set_bc(update1)
+        update2 = 1./3.*array + 2./3.*update1 + 2./3.*dt*rhs(update1)
+        update2 = set_bc(update2)
+        return update2
+    return nb.njit(inner, cache=True)
 
 
 def tvd_rk5(array, rhs, set_bc, dt):

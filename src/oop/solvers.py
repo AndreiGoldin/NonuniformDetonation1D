@@ -24,28 +24,65 @@ class Solver:
                 frame_type='LFOR', init_cond_type='Sine',
                 bound_cond_type='Zero', upstream_type=None,
                 space_method_type='WENO5M', time_method_type='TVDRK3', CFL=0.8):
-        self.bound_cond_type = bound_cond_type
-        self.space_method_type = space_method_type
         self.equations = Equations.create(equations_type, equation_params)
-        self.space_method = SpaceMethod.create(space_method_type, params={'eps':1e-40, 'p':2})
-        self.time_method = possible_integrators[time_method_type]
         self.frame = frame_type
-        self.init_cond = possible_ic[init_cond_type]
-        self.set_bc = lambda x: possible_bc[bound_cond_type](mesh, x)
         self.CFL = CFL
+        self.bound_cond_type = bound_cond_type
+        # self.set_bc = lambda x: possible_bc[bound_cond_type](mesh, x)
+        self.set_bc = possible_bc[bound_cond_type](mesh)
+        self.space_step = mesh.nodes[1]-mesh.nodes[0]
+        self.space_method_type = space_method_type
+        self.space_method = SpaceMethod.create(space_method_type, params={'eps':1e-40, 'p':2})
+        self.init_cond = possible_ic[init_cond_type]
+        # self.time_method = possible_integrators[time_method_type]
+        # Compiling with the chosen spatial method and boundary conditions
+        self.calculate_rhs = self._create_rhs_func()
+        self.time_method = possible_integrators[time_method_type](self.calculate_rhs, self.set_bc)
 
     def set_initial_conditions(self, mesh, params):
-        self.space_step = mesh.nodes[1]-mesh.nodes[0]
         united_params = {**params, **self.equations.parameters}
         init_array = self.init_cond(mesh.nodes, united_params)
         init_array = self.set_bc(init_array)
         self.phys_solution = np.copy(init_array)
-        # n_row = init_array.shape[0] if np.ndim(init_array) > 1 else 1
         init_array_conserved = self.equations.convert_to_cons_vars(init_array)
-        # init_array = np.empty((n_row, mesh.nodes.size))
-        # init_array[:, mesh.domain] = init_array_conserved
         init_array_conserved = self.set_bc(init_array_conserved)
         self.solution = np.copy(init_array_conserved)
+
+    @staticmethod
+    @nb.njit(cache=True)
+    def _calculate_rhs_lfweno5m(array, flux_func, source_func,
+            spatial_func, jacobian_func, space_step):
+        flux = flux_func(array)
+        rhs = source_func(array)
+        jacobian_norm = jacobian_func(array)
+        alpha = np.copy(jacobian_norm)
+        alpha[:-1] = np.maximum(np.abs(jacobian_norm[:-1]), np.abs(jacobian_norm[1:]))
+        flux_minus = flux - alpha*array
+        flux_plus = flux + alpha*array
+        flux_approx_minus = spatial_func(flux_minus[:, 5:],
+                flux_minus[:, 4:-1], flux_minus[:, 3:-2], flux_minus[:, 2:-3], flux_minus[:,1:-4])
+        flux_approx_plus = spatial_func(flux_plus[:, :-5],
+                flux_plus[:, 1:-4], flux_plus[:, 2:-3], flux_plus[:, 3:-2], flux_plus[:,4:-1])
+        flux_approx = 0.5*(flux_approx_plus + flux_approx_minus)
+        flux_derivative = (flux_approx[:, 1:]-flux_approx[:, :-1])/space_step
+        rhs[:, 3:-3] -= flux_derivative
+        return rhs
+
+
+
+    def _create_rhs_func(self):
+        """Returns function to be compiled with njit"""
+        flux_func = nb.njit(self.equations.calculate_fluxes(), cache=True)
+        source_func = nb.njit(self.equations.calculate_sources(), cache=True)
+        jacobian_func = nb.njit(self.equations.calculate_jac_norm(), cache=True)
+        spatial_func = nb.njit(self.space_method.flux_approx(), cache=True)
+        space_step = self.space_step
+        rhs_method = self._calculate_rhs_lfweno5m
+        def inner(array):
+            return rhs_method(array, flux_func, source_func,
+                    spatial_func, jacobian_func, space_step)
+        return inner
+
 
     @abstractmethod
     def calculate_dt(self):
@@ -61,8 +98,6 @@ class Solver:
     def calculate_rhs_weno5m(self, array):
         flux = self.equations.calculate_fluxes(array)
         rhs = self.equations.calculate_sources(array)
-        assert np.allclose(flux, array)
-        assert np.sum(rhs) == 0.
         # flux_approx[:,0] = f_hat_{1/2}
         # flux_approx[:,-1] = f_hat_{N+1/2}
         flux_approx = self.space_method.flux_approx(flux[:, :-4],
@@ -79,11 +114,6 @@ class Solver:
         jacobian_norm = self.equations.calculate_jac_norm(array)
         alpha = np.copy(jacobian_norm)
         alpha[:-1] = np.maximum(np.abs(jacobian_norm[:-1]), np.abs(jacobian_norm[1:]))
-        # Burgers
-        # alpha = np.copy(array)
-        # alpha[:, :-1] = np.maximum(np.abs(array[:, :-1]), np.abs(array[:, 1:]))
-        # Advection
-        # alpha = np.ones_like(array)
         flux_minus = flux - alpha*array
         flux_plus = flux + alpha*array
         flux_approx_minus = self.space_method.flux_approx(flux_minus[:, 5:],
@@ -96,23 +126,14 @@ class Solver:
         return rhs
 
     def timeintegrate(self):
-        self.solution = self.time_method(self.solution, self.calculate_rhs, self.set_bc, self.dt)
+        # self.solution = self.time_method(self.solution, self.calculate_rhs, self.set_bc, self.dt)
+        self.solution = self.time_method(self.solution, self.dt)
 
     def solve(self, time_limit):
         time = [0.]
         while time[-1] < time_limit:
             mesh = self.mesh
-            # assert np.allclose(self.solution[:, mesh.right_ghosts], self.solution[:, mesh.domain[0]+1:mesh.domain[0]+mesh.n_ghosts+1 ])
-            # assert np.allclose(self.solution[:, mesh.left_ghosts], self.solution[:, mesh.domain[-1]-mesh.n_ghosts:mesh.domain[-1] ])
-            # assert self.solution[:, mesh.domain[0]] == self.solution[:, mesh.domain[-1]]
-            # assert np.all(mesh.nodes[mesh.left_ghosts] < 0)
-            # assert np.all(mesh.nodes[mesh.right_ghosts] > 1.)
-
-            # assert np.max(self.solution) <= 1.0
-            # assert np.min(self.solution) >= -1.0
-
             dt = self.calculate_dt()
-            # assert dt == 8*self.space_step**(5/3)
             self.dt = dt if time[-1] + dt <= time_limit else time_limit-time[-1]
             self.timeintegrate()
             time.append(time[-1] + self.dt)
@@ -175,16 +196,24 @@ class EulerSolver(Solver):
 class ReactiveEulerSolver(Solver):
     def __init__(self, mesh, params):
         super().__init__(mesh, equations_type='ReactiveEuler', equation_params=params,
-                init_cond_type='ZND_LFOR_halfwave', bound_cond_type='Zero_Grad',
+                init_cond_type='ZND_LFOR', bound_cond_type='Zero_Grad',
                 space_method_type='WENO5M', time_method_type='TVDRK3')
-        self.calculate_rhs = self.calculate_rhs_lfweno5m
+        # self.calculate_rhs = self.calculate_rhs_lfweno5m
+        self.calculate_dt = self._create_dt_func()
         self.parameters = params
-        # To calculate initial Jacobian norm and then calculate real dt
-        # self.set_initial_conditions(mesh, params)
-        # self.dt = 0.
-        # self.timeintegrate()
 
-    def calculate_dt(self):
+    def _calculate_dt(self):
         jacobian_norm = self.equations.calculate_jac_norm(self.solution)
         self.dt = self.CFL*self.space_step/np.max(jacobian_norm)
         return self.dt
+
+    def _create_dt_func(self):
+        """Returns function to be compiled with njit"""
+        space_step = self.space_step
+        CFL = self.CFL
+        jacobian_func = nb.njit(self.equations.calculate_jac_norm(), cache=True)
+        def inner(array):
+            jacobian_norm = jacobian_func(array)
+            dt = CFL*space_step/np.max(jacobian_norm)
+            return dt
+        return nb.njit(inner, cache=True)

@@ -1,4 +1,5 @@
 # Solver for hyperbolic problems in 1D
+import time as timer
 import numpy as np
 from reader import Reader
 from mesh import Mesh
@@ -18,7 +19,7 @@ Writer.create_folders()
 # Henrick2006: Reactive Euler
 solver_type = 'ReactiveEuler'
 gamma, Q, E = 1.2, 50.0, 25.0
-params = {'a':-10,'b':100,'N':20001,'T':15.0,'frame':'LFOR',
+params = {'a':-10,'b':100,'N':2001,'T':12.5,'frame':'LFOR',
         'gamma':gamma,'heat_release':Q,'act_energy':E}
 
 time, time_limit, time_out = [0.], params['T'], 0.
@@ -28,23 +29,29 @@ mesh = Mesh(params['a'], params['b'], params['N'], 3)
 solver = Solver.create(solver_type, mesh, params)
 
 solver.set_initial_conditions(mesh, params)
+#
+timer_start = timer.perf_counter()
 while time[-1] < time_limit:
     if time[-1] >= time_out:
         print(f't = {time[-1]:.2f}')
         Writer.plot_solution(mesh, solver.solution, time[-1], f'image{n_image:03d}')
         time_out += 0.01
         n_image += 1
-    dt = solver.calculate_dt()
+
+    dt = solver.calculate_dt(solver.solution)
     solver.dt = dt if time[-1] + dt <= time_limit else time_limit-time[-1]
     if dt < 1e-15:
         break
+
     solver.timeintegrate()
     time.append(time[-1] + solver.dt)
     if np.any(np.isnan(solver.solution)):
         raise ValueError('Floating point error')
-
 #Last shot
 Writer.plot_solution(mesh, solver.solution, time[-1], f'image{n_image:03d}')
+wall_time = timer.perf_counter() - timer_start
+print(f'Walltime: {wall_time:.2f} s')
+
 Writer.make_video()
 # filename = f"test_data/Euler_Nx{params['N']}Nt12800"
 # Writer.save_solution(filename,solver.equations.convert_to_phys_vars(solver.solution))

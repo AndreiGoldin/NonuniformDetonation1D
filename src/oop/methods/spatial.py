@@ -70,24 +70,18 @@ class WENO5M(SpaceMethod):
         """
         return ( omega * (w_k + w_k**2 - 3. * w_k * omega + omega**2) / (w_k**2 + (1. - 2. * w_k) * omega))
 
-    def flux_approx(self, nodeim2, nodeim1, nodei, nodeip1, nodeip2):
+    def _flux_approx(self, nodeim2, nodeim1, nodei, nodeip1, nodeip2):
         # Interpolation of the fluxes on substencils
         q_im1 = 1.0 / 3.0 * nodeim2 - 7.0 / 6.0 * nodeim1 + 11.0 / 6.0 * nodei
         q_i = -1.0 / 6.0 * nodeim1 + 5.0 / 6.0 * nodei + 1.0 / 3.0 * nodeip1
         q_ip1 = 1.0 / 3.0 * nodei + 5.0 / 6.0 * nodeip1 - 1.0 / 6.0 * nodeip2
         # Indicators of smoothness
-        beta_im1 = (
-            13.0 / 12.0 * (nodeim2 - 2.0 * nodeim1 + nodei) ** 2
-            + 0.25 * (nodeim2 - 4.0 * nodeim1 + 3.0 * nodei) ** 2
-        )
-        beta_i = (
-            13.0 / 12.0 * (nodeim1 - 2.0 * nodei + nodeip1) ** 2
-            + 0.25 * (nodeip1 - nodeim1) ** 2
-        )
-        beta_ip1 = (
-            13.0 / 12.0 * (nodei - 2.0 * nodeip1 + nodeip2) ** 2
-            + 0.25 * (3.0 * nodei - 4.0 * nodeip1 + nodeip2) ** 2
-        )
+        beta_im1 = ( 13.0 / 12.0 * (nodeim2 - 2.0 * nodeim1 + nodei) ** 2
+            + 0.25 * (nodeim2 - 4.0 * nodeim1 + 3.0 * nodei) ** 2)
+        beta_i = ( 13.0 / 12.0 * (nodeim1 - 2.0 * nodei + nodeip1) ** 2
+            + 0.25 * (nodeip1 - nodeim1) ** 2)
+        beta_ip1 = ( 13.0 / 12.0 * (nodei - 2.0 * nodeip1 + nodeip2) ** 2
+            + 0.25 * (3.0 * nodei - 4.0 * nodeip1 + nodeip2) ** 2)
         # Weights for stencils
         alpha_im1 = 1.0 / 10.0 / (self.eps + beta_im1) ** self.p
         alpha_i = 6.0 / 10.0 / (self.eps + beta_i) ** self.p
@@ -101,6 +95,37 @@ class WENO5M(SpaceMethod):
         # Numerical flux
         modified_weno5_flux = ( mod_omega_0 * q_im1 + mod_omega_1 * q_i + mod_omega_2 * q_ip1) / mod_omega_sum
         return modified_weno5_flux
+
+
+    def flux_approx(self):
+        eps = self.eps
+        g_numba = self.g_numba
+        def inner(nodeim2, nodeim1, nodei, nodeip1, nodeip2):
+            # Interpolation of the fluxes on substencils
+            q_im1 = 1.0 / 3.0 * nodeim2 - 7.0 / 6.0 * nodeim1 + 11.0 / 6.0 * nodei
+            q_i = -1.0 / 6.0 * nodeim1 + 5.0 / 6.0 * nodei + 1.0 / 3.0 * nodeip1
+            q_ip1 = 1.0 / 3.0 * nodei + 5.0 / 6.0 * nodeip1 - 1.0 / 6.0 * nodeip2
+            # Indicators of smoothness
+            beta_im1 = ( 13.0 / 12.0 * (nodeim2 - 2.0 * nodeim1 + nodei) ** 2
+                + 0.25 * (nodeim2 - 4.0 * nodeim1 + 3.0 * nodei) ** 2)
+            beta_i = ( 13.0 / 12.0 * (nodeim1 - 2.0 * nodei + nodeip1) ** 2
+                + 0.25 * (nodeip1 - nodeim1) ** 2)
+            beta_ip1 = ( 13.0 / 12.0 * (nodei - 2.0 * nodeip1 + nodeip2) ** 2
+                + 0.25 * (3.0 * nodei - 4.0 * nodeip1 + nodeip2) ** 2)
+            # Weights for stencils
+            alpha_im1 = 1.0 / 10.0 / (eps + beta_im1) ** 2
+            alpha_i = 6.0 / 10.0 / (eps + beta_i) ** 2
+            alpha_ip1 = 3.0 / 10.0 / (eps + beta_ip1) ** 2
+            alpha_sum = alpha_im1 + alpha_i + alpha_ip1
+            # Modified weights
+            mod_omega_0 = g_numba(1.0 / 10.0, alpha_im1 / alpha_sum)
+            mod_omega_1 = g_numba(6.0 / 10.0, alpha_i / alpha_sum)
+            mod_omega_2 = g_numba(3.0 / 10.0, alpha_ip1 / alpha_sum)
+            mod_omega_sum = mod_omega_0 + mod_omega_1 + mod_omega_2
+            # Numerical flux
+            modified_weno5_flux = (mod_omega_0 * q_im1 + mod_omega_1 * q_i + mod_omega_2 * q_ip1) / mod_omega_sum
+            return modified_weno5_flux
+        return inner
 
 
 class TENO(SpaceMethod):

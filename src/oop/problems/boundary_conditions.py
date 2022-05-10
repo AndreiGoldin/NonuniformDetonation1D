@@ -72,12 +72,30 @@ def boundary_lfor_zero(mesh, array):
     return array
 
 
-def boundary_lfor_zero_grad(mesh, array):
+def _boundary_lfor_zero_grad(mesh, array):
     array[:, mesh.domain[0]] = array[:, mesh.domain[1]]
     array[:, mesh.domain[-1]] = array[:, mesh.domain[-2]]
     array[:, mesh.left_ghosts] = array[:, mesh.domain[0]].reshape(-1,1)
     array[:, mesh.right_ghosts] = array[:,mesh.domain[-1]].reshape(-1,1)
     return array
+
+
+def boundary_lfor_zero_grad(mesh):
+    domain_min = mesh.domain[0]
+    domain_max = mesh.domain[-1]
+    left_ghosts_min = min(mesh.left_ghosts)
+    left_ghosts_max = max(mesh.left_ghosts)
+    right_ghosts_min = min(mesh.right_ghosts)
+    right_ghosts_max = max(mesh.right_ghosts)
+    def inner(array):
+        array[:, domain_min] = array[:, domain_min+1]
+        array[:, domain_max] = array[:, domain_max-1]
+        n_rows = array.shape[0] if array.ndim > 1 else 1
+        for i in range(n_rows):
+            array[i, left_ghosts_min:left_ghosts_max] = array[i, domain_min]
+            array[i, right_ghosts_min:right_ghosts_max] = array[i, domain_max]
+        return array
+    return inner
 
 
 def boundary_periodic_right_going(mesh,array):

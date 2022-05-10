@@ -59,6 +59,9 @@ class Advection(Equations):
     def calculate_sources(self, array):
         return np.zeros_like(array)
 
+    def calculate_jac_norm(self, array):
+        return self.speed*np.ones_like(array)
+
 
 @Equations.register_equations('Burgers')
 class Burgers(Equations):
@@ -76,6 +79,9 @@ class Burgers(Equations):
 
     def calculate_sources(self, array):
         return np.zeros_like(array)
+
+    def calculate_jac_norm(self, array):
+        return array
 
 
 @Equations.register_equations('Euler')
@@ -143,11 +149,11 @@ class Euler(Equations):
         P = (self.gamma - 1.0) * (
             array[2, :] - 0.5 * array[1, :] * array[1, :] / array[0, :])
         sound_speed = np.sqrt(self.gamma*P/array[0,:])
-        Evals = np.empty_like(array)
-        Evals[0, :] = u - sound_speed
-        Evals[1, :] = u
-        Evals[2, :] = u + sound_speed
-        return np.max(np.abs(Evals), axis=0)
+        evals = np.empty_like(array)
+        evals[0, :] = u - sound_speed
+        evals[1, :] = u
+        evals[2, :] = u + sound_speed
+        return np.max(np.abs(evals), axis=0)
 
 
 @Equations.register_equations('ReactiveEuler')
@@ -220,7 +226,7 @@ class ReactiveEuler(Equations):
         )
         return cons_array
 
-    def calculate_fluxes(self, array):
+    def _calculate_fluxes(self, array):
         """ Calculate exact fluxes from the conserved variables """
         flux_array = np.empty_like(array)
         pressure = (self.gamma - 1) * ( array[2, :]
@@ -232,7 +238,7 @@ class ReactiveEuler(Equations):
         flux_array[3, :] = array[1, :] * array[3, :] / array[0, :]
         return flux_array
 
-    def calculate_sources(self, array):
+    def _calculate_sources(self, array):
         """ Calculate the right hand side of the equations from the conserved variables"""
         pressure = (self.gamma - 1) * ( array[2, :]
             - 0.5 * array[1, :] * array[1, :] / array[0, :]
@@ -245,7 +251,7 @@ class ReactiveEuler(Equations):
         )
         return source
 
-    def calculate_jac_norm(self, array):
+    def _calculate_jac_norm(self, array):
         """ Necessary for Lax-Friedrichs splitting for flux approximation
         Input array contains the conservative variables"""
         u = array[1, :] / array[0, :]
@@ -253,11 +259,69 @@ class ReactiveEuler(Equations):
             array[2, :] - 0.5 * array[1, :] * array[1, :] / array[0, :]
             + self.heat_release * array[3, :])
         sound_speed = np.sqrt(self.gamma*pressure/array[0,:])
-        Evals = np.zeros_like(array)
-        Evals[0, :] = u - sound_speed
-        Evals[1, :] = u
-        Evals[2, :] = u + sound_speed
-        return np.max(np.abs(Evals), axis=0)
+        evals = np.zeros_like(array)
+        evals[0, :] = u - sound_speed
+        evals[1, :] = u
+        evals[2, :] = u + sound_speed
+        return np.max(np.abs(evals), axis=0)
+
+    def calculate_fluxes(self):
+        """Wrapper for the function to be compiled"""
+        gamma = self.gamma
+        heat_release = self.heat_release
+        def inner(array):
+            flux_array = np.empty_like(array)
+            pressure = (gamma - 1) * ( array[2, :]
+                - 0.5 * array[1, :] * array[1, :] / array[0, :]
+                + heat_release * array[3, :])
+            flux_array[0, :] = array[1, :]
+            flux_array[1, :] = array[1, :] * array[1, :] / array[0, :] + pressure
+            flux_array[2, :] = array[1, :] * (array[2, :] + pressure) / array[0, :]
+            flux_array[3, :] = array[1, :] * array[3, :] / array[0, :]
+            return flux_array
+        return inner
+
+    def calculate_sources(self):
+        """Wrapper for the function to be compiled"""
+        gamma = self.gamma
+        heat_release = self.heat_release
+        act_energy = self.act_energy
+        rate_const = self.rate_const
+        def inner(array):
+            pressure = (gamma - 1) * ( array[2, :]
+                - 0.5 * array[1, :] * array[1, :] / array[0, :]
+                + heat_release * array[3, :])
+            source = np.zeros_like(array)
+            source[-1, :] = (
+                rate_const
+                * (array[0, :] - array[3, :])
+                * np.exp(-act_energy * array[0, :] / pressure))
+            return source
+        return inner
+
+    def calculate_jac_norm(self):
+        """Wrapper for the function to be compiled"""
+        gamma = self.gamma
+        heat_release = self.heat_release
+        def inner(array):
+            u = array[1, :] / array[0, :]
+            pressure = (gamma - 1.0) * (
+                array[2, :] - 0.5 * array[1, :] * array[1, :] / array[0, :]
+                + heat_release * array[3, :])
+            sound_speed = np.sqrt(gamma*pressure/array[0,:])
+            evals = np.zeros_like(array)
+            evals[0, :] = u - sound_speed
+            evals[1, :] = u
+            evals[2, :] = u + sound_speed
+            abs_evals = np.abs(evals)
+            # jac_norm = np.max(abs_evals, axis=0)
+            # Loop for numba since it does not support kwargs in np.max
+            jac_norm = np.zeros(abs_evals.shape[1])
+            for i in range(jac_norm.size):
+                jac_norm[i] = np.max(abs_evals[:,i])
+            return jac_norm
+        return inner
+
 
 @Equations.register_equations('NonidealReactiveEuler')
 class NonidealReactiveEuler(ReactiveEuler):

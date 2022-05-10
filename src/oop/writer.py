@@ -2,6 +2,7 @@
 import numpy as np
 import subprocess
 import matplotlib.pyplot as plt
+from matplotlib import figure
 import os
 from pathlib import Path
 
@@ -21,13 +22,13 @@ class Writer:
         np.savez(file_name+'.npz', u=array)
 
     @classmethod
-    def plot_solution(cls, mesh, array, time, file_name):
-        plt.figure(dpi=300)
-        plt.plot(mesh.nodes, array[0,:], 'b')
-        plt.title(f't = {time:.2f}')
-        plt.grid()
-        plt.tight_layout()
-        plt.savefig('test_pics/'+file_name+'.png')
+    def plot_solution(cls, mesh, array, time, file_name, dpi=100):
+        fig = figure.Figure(dpi=dpi)
+        ax = fig.subplots(1)
+        ax.plot(mesh.nodes, array[0,:], 'b')
+        ax.set_title(f't = {time:.2f}')
+        ax.grid()
+        fig.savefig('test_pics/'+file_name+'.png')
         plt.close()
 
     @classmethod
