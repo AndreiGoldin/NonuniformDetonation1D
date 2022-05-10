@@ -17,7 +17,8 @@ class Equations:
     @classmethod
     def create(cls, equations_type, params):
         if equations_type not in cls.possible_equations:
-            raise ValueError(f'Unknown equations: {equations_type}. Possible options are {list(cls.possible_equations.keys())}.')
+            raise ValueError(f'Unknown equations: {equations_type}. Possible '+
+                    'options are {list(cls.possible_equations.keys())}.')
         return cls.possible_equations[equations_type](params)
 
     @abstractmethod
@@ -80,8 +81,8 @@ class Burgers(Equations):
 @Equations.register_equations('Euler')
 class Euler(Equations):
     """
-    Physical variables: rho, u, p, lambda
-    Conservative variables: rho, rho*u, rho*(e + u^2/2), rho*lambda
+    Physical variables: rho, u, p
+    Conservative variables: rho, rho*u, rho*(e + u^2/2)
     """
     def __init__(self, params: dict):
         # Prevent the absense of equations' parameters
@@ -141,15 +142,12 @@ class Euler(Equations):
         u = array[1, :] / array[0, :]
         P = (self.gamma - 1.0) * (
             array[2, :] - 0.5 * array[1, :] * array[1, :] / array[0, :])
-        # H = (array[2, :] + P) / array[0, :]
-        # c = np.sqrt((self.gamma - 1.0) * (H - 0.5 * u * u))
         sound_speed = np.sqrt(self.gamma*P/array[0,:])
-
         Evals = np.empty_like(array)
         Evals[0, :] = u - sound_speed
         Evals[1, :] = u
         Evals[2, :] = u + sound_speed
-        return np.max(Evals, axis=0)
+        return np.max(np.abs(Evals), axis=0)
 
 
 @Equations.register_equations('ReactiveEuler')
@@ -209,6 +207,8 @@ class ReactiveEuler(Equations):
         cons_array = np.copy(array)
         # rho*u
         cons_array[1, :] = array[0, :] * array[1, :]
+        # rho*lambda
+        cons_array[3, :] = array[0, :] * array[3, :]
         # Energy
         cons_array[2, :] = (
             array[2, :] / (self.gamma - 1)
@@ -218,8 +218,6 @@ class ReactiveEuler(Equations):
             / array[0, :]
             - self.heat_release * cons_array[3, :]
         )
-        # rho*lambda
-        cons_array[3, :] = array[0, :] * array[3, :]
         return cons_array
 
     def calculate_fluxes(self, array):
@@ -247,10 +245,19 @@ class ReactiveEuler(Equations):
         )
         return source
 
-    def calculate_rhs(self, array):
-        """ RHS for the time integration? """
-        pass
-
+    def calculate_jac_norm(self, array):
+        """ Necessary for Lax-Friedrichs splitting for flux approximation
+        Input array contains the conservative variables"""
+        u = array[1, :] / array[0, :]
+        pressure = (self.gamma - 1.0) * (
+            array[2, :] - 0.5 * array[1, :] * array[1, :] / array[0, :]
+            + self.heat_release * array[3, :])
+        sound_speed = np.sqrt(self.gamma*pressure/array[0,:])
+        Evals = np.zeros_like(array)
+        Evals[0, :] = u - sound_speed
+        Evals[1, :] = u
+        Evals[2, :] = u + sound_speed
+        return np.max(np.abs(Evals), axis=0)
 
 @Equations.register_equations('NonidealReactiveEuler')
 class NonidealReactiveEuler(ReactiveEuler):

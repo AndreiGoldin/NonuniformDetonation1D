@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 
-def initial_ZND(nodes, params):
+def initial_znd(nodes, params):
     gamma, Q, act_energy, rate_const = params['gamma'], params['heat_release'],\
                                         params['act_energy'], params['rate_const']
     D_CJ = np.sqrt(gamma + (gamma * gamma - 1.0) * Q / 2.0) + \
@@ -32,6 +32,29 @@ def initial_ZND(nodes, params):
     return init_array
 
 
+def initial_znd_lfor(nodes, params):
+    znd_part = initial_znd(nodes[nodes<1e-16], params)
+    upstream_density = np.ones_like(nodes[nodes>=1e-16])
+    upstream_velocity = np.zeros_like(nodes[nodes>=1e-16])
+    upstream_pressure = np.ones_like(nodes[nodes>=1e-16])
+    upstream_lambda = np.zeros_like(nodes[nodes>=1e-16])
+    upstream_part = np.vstack((upstream_density, upstream_velocity,
+                                upstream_pressure, upstream_lambda))
+    init_array = np.hstack((znd_part,upstream_part))
+    return init_array
+
+def initial_znd_lfor_halfwave(nodes, params):
+    znd_part = initial_znd(nodes[nodes<1e-16], params)
+    upstream_density = np.ones_like(nodes[nodes>=1e-16])
+    upstream_velocity = np.zeros_like(nodes[nodes>=1e-16])
+    upstream_pressure = np.ones_like(nodes[nodes>=1e-16])
+    upstream_lambda = np.zeros_like(nodes[nodes>=1e-16])
+    upstream_part = np.vstack((upstream_density, upstream_velocity,
+                                upstream_pressure, upstream_lambda))
+    init_array = np.hstack((znd_part,upstream_part))
+    init_array[0, nodes>50] = 1-np.sin(nodes[nodes>50]-50)
+    init_array[0, nodes>50+np.pi] = np.ones_like(nodes[nodes>50+np.pi])
+    return init_array
 def initial_sine(nodes, params):
     L = max(nodes)-min(nodes)
     return np.sin(2.*np.pi*nodes/L)
@@ -54,7 +77,7 @@ if __name__=='__main__':
     rate_const_from_Henrick = 35.955584760859722
     params = {'gamma':1.2, 'act_energy':25.0, 'heat_release':50.0, 'rate_const':rate_const_from_Henrick}
     domain_mesh = np.linspace(-50,0,10001)
-    znd = initial_ZND(domain_mesh, params)
+    znd = initial_znd(domain_mesh, params)
     # Test that max(lambda) < 1
     assert np.max(znd[3,:]) < 1.0
 

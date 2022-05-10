@@ -52,7 +52,7 @@ def upstream_periodic_lambda(x, minimum=0., amp=0., wn=0.):
     return np.array((rho_a, u_a, p_a, lambda_a)), np.array((rho_der, u_der, p_der, lambda_der))
 
 
-def upstream_RDE(x,params):
+def upstream_rde(x,params):
     u_a, u_der = 0.0, 0.0
     p_a, p_der = 1.0, 0.0
 

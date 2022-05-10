@@ -13,13 +13,15 @@ possible_bc = {
         'None':boundary_none
         }
 possible_ic = {
-        'ZND': initial_ZND,
+        'ZND': initial_znd,
+        'ZND_LFOR': initial_znd_lfor,
+        'ZND_LFOR_halfwave': initial_znd_lfor_halfwave,
         'Sine':initial_sine,
         'Henrick2005':initial_henrick2005,
         'Shu-Osher':initial_shu_osher
         }
 possible_uc = {
-        'RDE': upstream_RDE
+        'RDE': upstream_rde
         }
 possible_es = {
         'Henrick2005': exact_henrick

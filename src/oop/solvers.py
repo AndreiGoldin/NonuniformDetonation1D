@@ -34,9 +34,10 @@ class Solver:
         self.set_bc = lambda x: possible_bc[bound_cond_type](mesh, x)
         self.CFL = CFL
 
-    def set_initial_conditions(self, mesh):
+    def set_initial_conditions(self, mesh, params):
         self.space_step = mesh.nodes[1]-mesh.nodes[0]
-        init_array = self.init_cond(mesh.nodes, params={})
+        united_params = {**params, **self.equations.parameters}
+        init_array = self.init_cond(mesh.nodes, united_params)
         init_array = self.set_bc(init_array)
         self.phys_solution = np.copy(init_array)
         # n_row = init_array.shape[0] if np.ndim(init_array) > 1 else 1
@@ -169,3 +170,21 @@ class EulerSolver(Solver):
         self.dt = 1.8/self.Nt
         return self.dt
 
+
+@Solver.register_solver('ReactiveEuler')
+class ReactiveEulerSolver(Solver):
+    def __init__(self, mesh, params):
+        super().__init__(mesh, equations_type='ReactiveEuler', equation_params=params,
+                init_cond_type='ZND_LFOR_halfwave', bound_cond_type='Zero_Grad',
+                space_method_type='WENO5M', time_method_type='TVDRK3')
+        self.calculate_rhs = self.calculate_rhs_lfweno5m
+        self.parameters = params
+        # To calculate initial Jacobian norm and then calculate real dt
+        # self.set_initial_conditions(mesh, params)
+        # self.dt = 0.
+        # self.timeintegrate()
+
+    def calculate_dt(self):
+        jacobian_norm = self.equations.calculate_jac_norm(self.solution)
+        self.dt = self.CFL*self.space_step/np.max(jacobian_norm)
+        return self.dt
