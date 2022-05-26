@@ -196,7 +196,7 @@ class EulerSolver(Solver):
 class ReactiveEulerSolver(Solver):
     def __init__(self, mesh, params):
         super().__init__(mesh, equations_type='ReactiveEuler', equation_params=params,
-                init_cond_type='ZND_LFOR', bound_cond_type='Zero_Grad',
+                init_cond_type='ZND_LFOR_halfwave', bound_cond_type='Zero_Grad',
                 space_method_type='WENO5M', time_method_type='TVDRK3')
         # self.calculate_rhs = self.calculate_rhs_lfweno5m
         self.calculate_dt = self._create_dt_func()

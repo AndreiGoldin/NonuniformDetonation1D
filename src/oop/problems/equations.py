@@ -94,7 +94,7 @@ class Euler(Equations):
         # Prevent the absense of equations' parameters
         for param in ['gamma']:
             if param not in params.keys():
-                raise AttributeError(f'Parameter {param} is not defined for the reactive Euler equations.')
+                raise AttributeError(f'Parameter {param} is not defined for the Euler equations.')
         self.gamma = params['gamma']
         self.parameters = params
 

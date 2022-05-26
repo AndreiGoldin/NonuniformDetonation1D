@@ -5,39 +5,58 @@ import matplotlib.pyplot as plt
 from matplotlib import figure
 import os
 from pathlib import Path
-
+import physics
 
 class Writer:
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, params):
+        E, amp, wn = params['act_energy'],params['bump_amp'],params['bump_wn']
+        self.data_dir =  f'halfwave_data'
+        self.pics_dir =  f'E{E:.1f}amp{amp:.1f}wn{wn:.2f}_pics'
+        self.video_dir = f'halfwave_videos'
+        self.video_name = f'E{E:.1f}amp{amp:.1f}wn{wn:.2f}_video'
+        self.solution_name = f'E{E:.1f}amp{amp:.1f}wn{wn:.2f}_solution'
 
-    @classmethod
-    def create_folders(cls):
-        Path('test_data').mkdir(parents=True, exist_ok=True)
-        Path('test_pics').mkdir(parents=True, exist_ok=True)
-        Path('test_videos').mkdir(parents=True, exist_ok=True)
+    def create_folders(self):
+        # Path('test_data').mkdir(parents=True, exist_ok=True)
+        # Path('test_pics').mkdir(parents=True, exist_ok=True)
+        # Path('test_videos').mkdir(parents=True, exist_ok=True)
+        Path(self.data_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.pics_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.video_dir).mkdir(parents=True, exist_ok=True)
 
-    @classmethod
-    def write_solution(cls, array, file_name):
-        np.savez(file_name+'.npz', u=array)
-
-    @classmethod
-    def plot_solution(cls, mesh, array, time, file_name, dpi=100):
-        fig = figure.Figure(dpi=dpi)
+    def plot_solution(self, mesh, array, time, file_name, params, dpi=300):
+        # density_grad = physics.density_gradient(array, params)
+        # p = physics.pressure(array, params)
+        _temperature = physics.temperature(array, params)
+        reaction_rate = physics.reaction_rate_from_cons(array, params)
+        density = array[0,:]
+        fig = figure.Figure(dpi=dpi, tight_layout=True)
         ax = fig.subplots(1)
-        ax.plot(mesh.nodes, array[0,:], 'b')
+        ax.plot(mesh.nodes, reaction_rate,'r', label='Reaction rate')
+        ax.plot(mesh.nodes, density, 'b', label='Density')
+        ax.plot(mesh.nodes, _temperature, 'k', label='Temperature')
+        # ax.plot(mesh.nodes, density_grad, 'b', label='Density gradient')
+        # ax.plot(mesh.nodes, p, 'b', label='Pressure')
         ax.set_title(f't = {time:.2f}')
+        ax.set_ylim(0., 18.)
         ax.grid()
-        fig.savefig('test_pics/'+file_name+'.png')
+        ax.legend(loc='upper right')
+        fig.savefig(os.path.join(self.pics_dir,file_name)+'.png')
         plt.close()
 
-    @classmethod
-    def save_solution(cls, filename, array):
-        np.savez(filename+'.npz', solution=array)
+    def save_solution(self, array):
+        np.savez(os.path.join(self.data_dir,self.solution_name)+'.npz',
+                solution=array)
 
-    @classmethod
-    def make_video(cls, file_name=None):
-        anim_status = subprocess.run(f'cd test_pics && ffmpeg -hide_banner -loglevel error -framerate 20 -start_number 0 -i image%03d.png -y -vf format=yuv420p test.mp4 && cd -',
+    def make_video(self, file_name=None):
+        anim_status = subprocess.run(f'cd {self.pics_dir} && ffmpeg -hide_banner '+
+                f'-loglevel error -framerate 20 -start_number 0 -i image%03d.png '+
+                f'-y -vf format=yuv420p {self.video_name}.mp4 && cd - 1> /dev/null',
                    shell=True, check=True)
         if anim_status.returncode == 0:
-            subprocess.run('mkdir -p test_videos && cp test_pics/test.mp4 test_videos && rm test_pics/*', shell=True, check=True)
+            subprocess.run(f'cp {self.pics_dir}/{self.video_name}.mp4 {self.video_dir} '+
+                    f'&& rm -r {self.pics_dir}', shell=True, check=True)
+
+
+
+# ffmpeg -hide_banner -loglevel error -framerate 20 -start_number 0 -i image%03d.png -y -vf format=yuv420p test.mp4

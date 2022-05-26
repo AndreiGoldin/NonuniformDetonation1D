@@ -3,6 +3,16 @@ from scipy import interpolate
 import numpy as np
 
 
+def upstream_uniform(x):
+     upstream_density = np.ones_like(x)
+     upstream_velocity = np.zeros_like(x)
+     upstream_pressure = np.ones_like(x)
+     upstream_lambda = np.zeros_like(x)
+     upstream_part = np.vstack((upstream_density, upstream_velocity,
+                                 upstream_pressure, upstream_lambda))
+     return upstream_part
+
+
 def upstream_periodic_rho(x, mean=1., amp=0., wn=0.):
     """Calculates density at lab coordinate x"""
     u_a, p_a, lambda_a = 0.0, 1.0, 0.0

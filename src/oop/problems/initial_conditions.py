@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
+from .upstream_conditions import *
+
 
 def initial_znd(nodes, params):
     gamma, Q, act_energy, rate_const = params['gamma'], params['heat_release'],\
@@ -43,18 +45,24 @@ def initial_znd_lfor(nodes, params):
     init_array = np.hstack((znd_part,upstream_part))
     return init_array
 
+
 def initial_znd_lfor_halfwave(nodes, params):
-    znd_part = initial_znd(nodes[nodes<1e-16], params)
-    upstream_density = np.ones_like(nodes[nodes>=1e-16])
-    upstream_velocity = np.zeros_like(nodes[nodes>=1e-16])
-    upstream_pressure = np.ones_like(nodes[nodes>=1e-16])
-    upstream_lambda = np.zeros_like(nodes[nodes>=1e-16])
-    upstream_part = np.vstack((upstream_density, upstream_velocity,
-                                upstream_pressure, upstream_lambda))
-    init_array = np.hstack((znd_part,upstream_part))
-    init_array[0, nodes>50] = 1-np.sin(nodes[nodes>50]-50)
-    init_array[0, nodes>50+np.pi] = np.ones_like(nodes[nodes>50+np.pi])
+    amp, wn = params['bump_amp'], params['bump_wn']
+    offset = 20.
+    # znd_part = initial_znd(nodes[nodes<1e-16], params)
+    # upstream_density = np.ones_like(nodes[nodes>=1e-16])
+    # upstream_velocity = np.zeros_like(nodes[nodes>=1e-16])
+    # upstream_pressure = np.ones_like(nodes[nodes>=1e-16])
+    # upstream_lambda = np.zeros_like(nodes[nodes>=1e-16])
+    # upstream_part = np.vstack((upstream_density, upstream_velocity,
+    #                             upstream_pressure, upstream_lambda))
+    # init_array = np.hstack((znd_part,upstream_part))
+    init_array = initial_from_file(nodes, params)
+    init_array[0, nodes>offset] = 1 + amp*np.sin(wn*(nodes[nodes>offset]-offset))
+    init_array[0, nodes>offset+np.pi/wn] = np.ones_like(nodes[nodes>offset+np.pi/wn])
     return init_array
+
+
 def initial_sine(nodes, params):
     L = max(nodes)-min(nodes)
     return np.sin(2.*np.pi*nodes/L)
@@ -70,6 +78,23 @@ def initial_shu_osher(nodes, params):
     init_cond[1,:] = 4.*np.sqrt(35)/9*np.ones_like(nodes)*(nodes<-4)
     init_cond[2,:] = 31./3.*np.ones_like(nodes)*(nodes<-4) + np.ones_like(nodes)*(nodes>=-4)
     return init_cond
+
+
+def initial_from_file(nodes, params):
+     filename = params['init_filename']+'.npz'
+     prev_mesh = np.load(filename)['mesh']
+     prev_solution = np.load(filename)['solution']
+     # init_cond_prev = np.zeros_like(prev_solution)
+     init_cond_prev = upstream_uniform(prev_mesh)
+     # init_cond[:, nodes<10] = prev_solution[:, prev_mesh>70]
+     # init_cond[:, nodes>=10] = upstream_uniform(nodes[nodes>=10])
+     # init_cond[:, nodes<5] = prev_solution[:, prev_mesh>75]
+     # init_cond[:, nodes>=5] = upstream_uniform(nodes[nodes>=5])
+     init_cond_prev[:, prev_mesh<10] = prev_solution[:, prev_mesh>70]
+     # init_cond_prev[:, prev_mesh>=10] = upstream_uniform(prev_mesh[prev_mesh>=10])
+     init_cond = upstream_uniform(nodes)
+     init_cond[:, nodes<=np.max(prev_mesh)] = init_cond_prev
+     return init_cond
 
 
 if __name__=='__main__':
