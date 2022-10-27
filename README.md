@@ -1,3 +1,32 @@
+# DESCRIPTION
+This package contains a Python solver for 1D hyperbolic equations and systems. Main purpose is to
+implement the algorithm for the reactive Euler equations in the shock-attached frame of reference (SAFOR)
+that is presented in [[6]](#6). However, in order to test different time and spatial discretization
+methods, the advection, Burgers, and Euler equations are also included as well as the possibility
+to work in the laboratory frame of reference. To enhance performance, [`numba` package](https://numba.pydata.org/) is used.
+# INSTALLATION
+To use the package, you need Python version >=3.6 and I recommend to use a separate
+virtual environment for simulations, for example, via [`venv` package](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/).
+Please execute following commands in the terminal.
+```
+git clone https://github.com/AndreiGoldin/NonuniformDetonation1D.git
+cd NonuniformDetonation1D
+python3 -m venv solver-env
+source solver-env/bin/activate
+pip install -r requirements.txt
+```
+To test the installation run
+```
+python3 examples/simple_advection.py
+```
+If you want to have animations of the solution evolution, you need to install [`ffmpeg`](https://ffmpeg.org/download.html).
+NB: When writing video is enabled, the solver works slower due to saving frames.
+# USAGE
+## Configuration
+## Problems
+## Methods
+## Initial and boundary conditions
+## Upstream conditions
 # NONUNIFORM DETONATION
 This package solves the problem of propagation of a 1D detonation wave in non-uniform media
 
@@ -5,12 +34,14 @@ This package solves the problem of propagation of a 1D detonation wave in non-un
 
 The governing equations are the reactive Euler equations in the shock-attached frame of reference [4,5]
 
+```math
 \begin{align}
 & \frac{\partial\rho}{\partial t} + \frac{\partial}{\partial x}\left( \rho (u-D)\right) = 0 \\
 & \frac{\partial}{\partial t} \left( \rho u\right) + \frac{\partial}{\partial x}\left( \rho u (u-D)+ p\right) = 0 \\
 & \frac{\partial}{\partial t} \left(\rho \left(e + \frac 12 u^2\right)\right) + \frac{\partial}{\partial x} \left(\rho (u-D) \left(e + \frac 12 u^2 \right) + u p\right)= 0 \\
 & \frac{\partial}{\partial t} \left( \rho \lambda \right)  + \frac{\partial}{\partial x}\left( \rho (u-D)\lambda \right) = K \rho (1-\lambda) \exp\left(-\frac{\rho E}{p}\right) \\
 \end{align}
+```
 
 The Rankine-Hugoniot conditions are usual for these equations
 ```math
@@ -60,7 +91,7 @@ The numerical algorithm is TVD Runge-Kutta (3rd order) + WENO5M spatial fluxes i
 
 [5] [R. Semenko, L. Faria, A. Kasimov, B. Ermolaev, Set-valued solutions for non-ideal detonation, Shock Waves, 26(2), 141–160, 2016](https://link.springer.com/article/10.1007/s00193-015-0610-3)
 
-[6] [Henrick, A. K., Aslam, T. D. & Powers, J. M. Simulations of pulsating one-dimensional detonations with true fifth order accuracy. Journal of Computational Physics 213, 311–329 (2006).](https://www.sciencedirect.com/science/article/pii/S0021999105003827)
+<a id="6">[6]</a> [Henrick, A. K., Aslam, T. D. & Powers, J. M. Simulations of pulsating one-dimensional detonations with true fifth order accuracy. Journal of Computational Physics 213, 311–329 (2006).](https://www.sciencedirect.com/science/article/pii/S0021999105003827)
 
 ## STRUCTURE:
 * `src/fp`:  Solver in functional paradigm with `numba`

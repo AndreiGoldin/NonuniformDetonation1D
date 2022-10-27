@@ -1,0 +1,26 @@
+problem:
+  type: Euler
+  parameters:
+    gamma: 1.4
+  frame: Laboratory
+  initial: Shu-Osher
+  boundary: Periodic
+domain:
+  left boundary: -5.0
+  right boundary: 5.0
+  nodes: 12801
+  timespan: 1.8
+  timesteps: 12800
+methods:
+  space: WENO5M
+  time: TVDRK3
+upstream:
+  type: Uniform
+  parameters:
+callbacks:
+  write seconds: yes
+  write video: no
+  plot final solution: yes
+  write final solution: yes
+  plot speed: yes
+  write speed: yes

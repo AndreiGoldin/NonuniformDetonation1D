@@ -10,6 +10,9 @@ lint:
 checklist: lint typehint test
 
 black:
-	black -l 80 src/*.py tests/*.py
+	black -l 80 src/*.py
 
-.PHONY: typehint test lint checklist black
+clean:
+	rm -r *pics *data *videos
+
+.PHONY: typehint test lint checklist black clean
