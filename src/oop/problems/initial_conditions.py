@@ -43,6 +43,7 @@ def initial_znd_lfor(nodes, params):
     init_array = np.hstack((znd_part,upstream_part))
     return init_array
 
+
 def initial_znd_lfor_halfwave(nodes, params):
     znd_part = initial_znd(nodes[nodes<1e-16], params)
     upstream_density = np.ones_like(nodes[nodes>=1e-16])
@@ -55,13 +56,16 @@ def initial_znd_lfor_halfwave(nodes, params):
     init_array[0, nodes>50] = 1-np.sin(nodes[nodes>50]-50)
     init_array[0, nodes>50+np.pi] = np.ones_like(nodes[nodes>50+np.pi])
     return init_array
+
+
 def initial_sine(nodes, params):
-    L = max(nodes)-min(nodes)
-    return np.sin(2.*np.pi*nodes/L)
+    arr = np.sin(2.*np.pi*nodes)
+    return arr.reshape(1,-1)
 
 
 def initial_henrick2005(nodes, params):
-    return np.sin(np.pi*nodes-np.sin(np.pi*nodes)/np.pi)
+    arr = np.sin(np.pi*nodes-np.sin(np.pi*nodes)/np.pi)
+    return arr.reshape(1,-1)
 
 
 def initial_shu_osher(nodes, params):

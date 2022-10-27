@@ -1,5 +1,4 @@
 # Contains solver classes for various problems
-from abc import abstractmethod
 import numpy as np
 from problems import *
 from  methods import *
@@ -36,7 +35,7 @@ class Solver:
         self.init_cond = possible_ic[init_cond_type]
         # self.time_method = possible_integrators[time_method_type]
         # Compiling with the chosen spatial method and boundary conditions
-        self.calculate_rhs = self._create_rhs_func()
+        self.calculate_rhs = self._create_rhs_func(self._calculate_rhs_lfweno5m)
         self.time_method = possible_integrators[time_method_type](self.calculate_rhs, self.set_bc)
 
     def set_initial_conditions(self, mesh, params):
@@ -47,6 +46,18 @@ class Solver:
         init_array_conserved = self.equations.convert_to_cons_vars(init_array)
         init_array_conserved = self.set_bc(init_array_conserved)
         self.solution = np.copy(init_array_conserved)
+
+    def _create_rhs_func(self, rhs_method):
+        """Returns function to be compiled with njit"""
+        flux_func = nb.njit(self.equations.calculate_fluxes(), cache=True)
+        source_func = nb.njit(self.equations.calculate_sources(), cache=True)
+        jacobian_func = nb.njit(self.equations.calculate_jac_norm(), cache=True)
+        spatial_func = nb.njit(self.space_method.flux_approx(), cache=True)
+        space_step = self.space_step
+        def inner(array):
+            return rhs_method(array, flux_func, source_func,
+                    spatial_func, jacobian_func, space_step)
+        return inner
 
     @staticmethod
     @nb.njit(cache=True)
@@ -67,26 +78,6 @@ class Solver:
         flux_derivative = (flux_approx[:, 1:]-flux_approx[:, :-1])/space_step
         rhs[:, 3:-3] -= flux_derivative
         return rhs
-
-
-
-    def _create_rhs_func(self):
-        """Returns function to be compiled with njit"""
-        flux_func = nb.njit(self.equations.calculate_fluxes(), cache=True)
-        source_func = nb.njit(self.equations.calculate_sources(), cache=True)
-        jacobian_func = nb.njit(self.equations.calculate_jac_norm(), cache=True)
-        spatial_func = nb.njit(self.space_method.flux_approx(), cache=True)
-        space_step = self.space_step
-        rhs_method = self._calculate_rhs_lfweno5m
-        def inner(array):
-            return rhs_method(array, flux_func, source_func,
-                    spatial_func, jacobian_func, space_step)
-        return inner
-
-
-    @abstractmethod
-    def calculate_dt(self):
-        pass
 
     def calculate_rhs_upwind(self, array):
         rhs = np.copy(array)
@@ -198,7 +189,6 @@ class ReactiveEulerSolver(Solver):
         super().__init__(mesh, equations_type='ReactiveEuler', equation_params=params,
                 init_cond_type='ZND_LFOR', bound_cond_type='Zero_Grad',
                 space_method_type='WENO5M', time_method_type='TVDRK3')
-        # self.calculate_rhs = self.calculate_rhs_lfweno5m
         self.calculate_dt = self._create_dt_func()
         self.parameters = params
 

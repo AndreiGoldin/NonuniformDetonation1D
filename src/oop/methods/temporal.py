@@ -12,6 +12,19 @@ def explicit_euler(array, rhs, set_bc, dt):
     return update
 
 
+def euler_safor(rhs, set_bc, rhs_speed):
+    """ Closure for numba version of tvd_rk3"""
+    set_bc = nb.njit(set_bc, cache=True)
+    rhs = nb.njit(rhs)
+    rhs_speed = nb.njit(rhs_speed, cache=True)
+    def inner(array, dt, ambient, speed):
+        update = array + dt*rhs(array, speed)
+        upd_speed = speed + dt*rhs_speed(array, ambient, speed)
+        update = set_bc(update, ambient, upd_speed)
+        return update, upd_speed
+    return nb.njit(inner)
+
+
 def _tvd_rk3(array, rhs, set_bc, dt):
     update = array + dt*rhs(array)
     update = set_bc(update)
@@ -55,3 +68,57 @@ def tvd_rk5(array, rhs, set_bc, dt):
             + 27./56.*rhs(update4) + 5./48.*rhs(update5))
     final = set_bc(final)
     return final
+
+
+# def tvd_rk3_safor(rhs, set_bc):
+#     """ Closure for numba version of tvd_rk3"""
+#     set_bc = nb.njit(set_bc, cache=True)
+#     rhs = nb.njit(rhs, cache=True)
+#     def inner(array, dt, ambient, speed):
+#         update = array + dt*rhs(array, speed)
+#         update = set_bc(update, ambient, speed)
+#         update1 = 3./4.*array + 1./4.*update + 1./4.*dt*rhs(update, speed)
+#         update1 = set_bc(update1, ambient, speed)
+#         update2 = 1./3.*array + 2./3.*update1 + 2./3.*dt*rhs(update1, speed)
+#         update2 = set_bc(update2, ambient, speed)
+#         return update2
+#     return nb.njit(inner, cache=True)
+
+
+def tvd_rk3_safor(rhs, set_bc, rhs_speed):
+    """ Closure for numba version of tvd_rk3"""
+    set_bc = nb.njit(set_bc, cache=True)
+    rhs = nb.njit(rhs)
+    rhs_speed = nb.njit(rhs_speed, cache=True)
+    def inner(array, dt, ambient, speed):
+        update = array + dt*rhs(array, speed)
+        upd_speed = speed + dt*rhs_speed(array, ambient, speed)
+        update = set_bc(update, ambient, upd_speed)
+
+        update1 = 3./4.*array + 1./4.*update + 1./4.*dt*rhs(update, upd_speed)
+        upd1_speed = 3./4.*speed + 1./4.*upd_speed + 1./4.*dt*rhs_speed(update, ambient, upd_speed)
+        update1 = set_bc(update1, ambient, upd1_speed)
+
+        update2 = 1./3.*array + 2./3.*update1 + 2./3.*dt*rhs(update1, upd1_speed)
+        upd2_speed = 1./3.*speed + 2./3.*upd1_speed + 2./3.*dt*rhs_speed(update1, ambient, upd1_speed)
+        update2 = set_bc(update2, ambient, upd2_speed)
+        return update2, upd2_speed
+    return nb.njit(inner)
+
+
+
+# def tvd_rk3_speed(rhs, set_bc):
+#     """ Closure for numba version of tvd_rk3"""
+#     set_bc = nb.njit(set_bc, cache=True)
+#     rhs = nb.njit(rhs, cache=True)
+#     def inner(array, dt, ambient, speed):
+#         update = speed + dt*rhs(array, ambient, speed)
+#         update = set_bc(update)
+#         update1 = 3./4.*speed + 1./4.*update + 1./4.*dt*rhs(array, ambient, update)
+#         update1 = set_bc(update1)
+#         update2 = 1./3.*speed + 2./3.*update1 + 2./3.*dt*rhs(array, ambient, update1)
+#         update2 = set_bc(update2)
+#         return update2
+#     return nb.njit(inner, cache=True)
+
+

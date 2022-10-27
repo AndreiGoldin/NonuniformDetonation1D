@@ -34,6 +34,7 @@ def upstream_periodic_lambda(x, minimum=0., amp=0., wn=0.):
     rho_der, u_der, p_der = 0.0, 0.0, 0.0
     if wn == 0. or amp == 0.:
         lambda_a, lambda_der = minimum, 0.
+        return np.array((rho_a, u_a, p_a, lambda_a)), np.array((rho_der, u_der, p_der, lambda_der))
     if x >= 1 / wn:
         # For temperature
         lambda_a = max( ( 0, 1.0 - np.exp( amp * (np.cos(2 * np.pi * wn * x) - 1)),))

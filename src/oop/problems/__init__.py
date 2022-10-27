@@ -6,6 +6,7 @@ from .upstream_conditions import *
 from .exact_solutions import *
 
 possible_bc = {
+        'Zero_Grad_SAFOR': boundary_safor,
         'Zero': boundary_lfor_zero,
         'Zero_Grad': boundary_lfor_zero_grad,
         'PeriodicRight': boundary_periodic_right_going,

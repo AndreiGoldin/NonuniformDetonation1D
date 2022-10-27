@@ -25,8 +25,19 @@ class Writer:
     def plot_solution(cls, mesh, array, time, file_name, dpi=100):
         fig = figure.Figure(dpi=dpi)
         ax = fig.subplots(1)
-        ax.plot(mesh.nodes, array[0,:], 'b')
+        ax.plot(mesh.nodes, array[3,:], 'b')
+        # ax.plot(mesh.nodes[mesh.domain], array[3,3:-3], 'b')
         ax.set_title(f't = {time:.2f}')
+        ax.grid()
+        fig.savefig('test_pics/'+file_name+'.png')
+        plt.close()
+
+    @classmethod
+    def plot_speed(cls, time, speed, file_name, dpi=100):
+        fig = figure.Figure(dpi=dpi)
+        ax = fig.subplots(1)
+        ax.plot(time, speed, 'b')
+        ax.set_title(f'D(t)')
         ax.grid()
         fig.savefig('test_pics/'+file_name+'.png')
         plt.close()
