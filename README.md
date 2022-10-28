@@ -6,7 +6,7 @@ methods, the advection, Burgers, and Euler equations are also included as well a
 to work in the laboratory frame of reference. To enhance performance, [`numba` package](https://numba.pydata.org/) is used.
 
 # INSTALLATION
-To use the package, you need Python version >=3.6 and I recommend to use a separate
+To use the package, you need Python with version >=3.6 and I recommend to use a separate
 virtual environment for simulations, for example, via [`venv` package](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/).
 Please execute following commands in the terminal.
 ```
@@ -34,17 +34,17 @@ several sections for various part of the simulation.
 The `type` key allows to choose the equation or system to be solved while
 `parameters` should specify names and values of the parameters for the chosen problem.
 Currently the following equations are included (possible opitons for `type` value and `parameters` list)
-* Advection
+* `Advection`
 ```math
 u_t + au_x = 0,
 ```
 where $a$ is the `speed` of the wave.
-* Burgers
+* `Burgers`
 ```math
 u_t + uu_x = 0
 ```
 with no additional parameters.
-* Euler
+* `Euler`
 ```math
 \begin{align}
 & \frac{\partial\rho}{\partial t} + \frac{\partial}{\partial x}\left( \rho u\right) = 0, \\
@@ -54,7 +54,7 @@ with no additional parameters.
 ```
 where $\rho$, $u$, and $p$ are the gas density, velocity, and pressure respectively.
 The total energy of gas $E = p/(\gamma - 1) + \rho u^2 / 2$ contains one parameter $\gamma$ (`gamma`).
-* ReactiveEuler
+* `ReactiveEuler`
 ```math
 \begin{align}
 & \frac{\partial\rho}{\partial t} + \frac{\partial}{\partial x}\left( \rho u\right) = 0, \\
@@ -80,7 +80,7 @@ Initial conditions are chosen with `initial` key. Currently possible options are
 * `ZND` (see [[4]](#4)): The detonation wave with $\gamma$, $E$, and $Q$ specified in `parameters`
 and initial velocity
 ```math
-D_{CJ} = \sqrt{\gamma + \frac 12 \left( \gamma^2 - 1 \left) Q} + \sqrt{\frac 12 \left( \gamma^2 - 1 \left) Q}.
+D_{CJ} = \sqrt{\gamma + \frac 12 \left( \gamma^2 - 1 \right) Q} + \sqrt{\frac 12 \left( \gamma^2 - 1 \right) Q}.
 ```
 Initial shock position is at $x=0$.
 
@@ -96,17 +96,17 @@ and the final simulation time.
 
 ### Methods
 Possible methods for spatial discretisation:
-* `Upwind` of the first order.
-* `UpstreamCentral` of the fifth order (see [[2]](#2)).
-* `WENO5M` of the fifth order (see [[1]](#1) and [[2]](#2)).
+* `Upwind` of the 1st order.
+* `UpstreamCentral` of the 5th order (see [[2]](#2)).
+* `WENO5M`: mapped weighted essentially non-oscillatory scheme of the 5th order (see [[1]](#1) and [[2]](#2)).
 
 Possible methods for time integration:
 * `Euler` of the first order.
 * `TVDRK3`: total variation diminishing Runge-Kutta of the 3rd order (see [[2]](#2)).
-* `TVDRK5`: total variation diminishing Runge-Kutta of the 5rd order (see [[1]](#1)).
+* `TVDRK5`: total variation diminishing Runge-Kutta of the 5th order (see [[1]](#1)).
 
 ### Upstream
-This section is used to prescribe the `type` and `parameters` upstream conditions in the case of the
+This section is used to prescribe the `type` and `parameters` for upstream conditions in the case of the
 shock-attached frame of reference.
 * `Uniform`: constant conditions
 * `RDE`: sinusoidal perturbations of the temperature and fuel concentration ahead of the wave
@@ -115,7 +115,7 @@ includes `density amplitude`, `density wavenumber`, `lambda amplitude`, and `lam
 
 ### Callbacks
 Only `yes` or `no` options are available for each key. Saved files can be found in `results` folder.
-`plot speed` and `write speed` are eligible only in the shock-attached frame of reference.
+`plot speed` and `write speed` are applicable only in the shock-attached frame of reference.
 * `write seconds`: show the simulation time every 0.01 units.
 * `write video`: save `mp4` file with evolution. `ffmpeg` is required.
 * `plot final solution`: save the graph with the solution at the final time.
@@ -127,9 +127,9 @@ The file contains array of timestamps and array of shock speed values at these t
 
 ## Running a simulation
 The simplest way to run your simulation is to edit `config.yaml` file in `src` directory
-and then just run `python3 main.py`. If you want to work in another folder, you can specify
+and then just run `python3 main.py` from there. If you want to work in another folder, you can specify
 a path for `python` to find the solver via `export PYTHONPATH=/path/to/src` and than
-run `python3 /path/to/main.py` having prepared the `config.yaml`.
+run `python3 /path/to/main.py` having prepared the `config.yaml` inside your folder.
 
 # NONUNIFORM DETONATION
 Here you can find more details on the main problem of interest that is propagation of a
@@ -188,9 +188,9 @@ The numerical algorithm is TVD Runge-Kutta (3rd order) + WENO5M spatial fluxes i
 
 <a id="1">[1]</a> [Henrick, A. K., Aslam, T. D. & Powers, J. M. Simulations of pulsating one-dimensional detonations with true fifth order accuracy. Journal of Computational Physics 213, 311–329 (2006).](https://www.sciencedirect.com/science/article/pii/S0021999105003827)
 
-<a id="2">[2]</a> Henrick, A.K., Aslam, T.D., & Powers, J.M. (2005) Mapped weighted essentially non-oscillatory schemes: Achieving optimal order near critical points. Journal of Computational Physics, 207, 542–567.
+<a id="2">[2]</a> [Henrick, A.K., Aslam, T.D., & Powers, J.M. (2005) Mapped weighted essentially non-oscillatory schemes: Achieving optimal order near critical points. Journal of Computational Physics, 207, 542–567.](https://www.sciencedirect.com/science/article/pii/S0021999105000409)
 
-<a id="3">[3]</a> [Kasimov, A. R. & Stewart, D. S. On the dynamics of self-sustained one-dimensional detonations: A numerical study in the shock-attached frame. Physics of Fluids 16, 3566–3578 (2004).](https://www.researchgate.net/publication/32955598_On_the_dynamics_of_self-sustained_one-dimensional_detonations_A_numerical_study_in_the_shock-attached_frame)
+<a id="3">[3]</a> [Kasimov, A. R. & Stewart, D. S. On the dynamics of self-sustained one-dimensional detonations: A numerical study in the shock-attached frame. Physics of Fluids 16, 3566–3578 (2004).](https://aip.scitation.org/doi/10.1063/1.1776531)
 
 <a id="4">[4]</a> [R. Semenko, L. Faria, A. Kasimov, B. Ermolaev, Set-valued solutions for non-ideal detonation, Shock Waves, 26(2), 141–160, 2016](https://link.springer.com/article/10.1007/s00193-015-0610-3)
 
