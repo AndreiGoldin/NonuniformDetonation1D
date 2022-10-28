@@ -67,7 +67,7 @@ where $\rho$, $u$, and $p$ have the same meaning as for the Euler equations abov
 The specific internal energy $e$ is $p\rho^{-1}/(\gamma -1) - \lambda Q$ with `heat release` $Q$.
 The fourth equation describes the evolution of the concentration $\lambda$ of the products
 for one-step chemical reaction. Its kinetics obeys Arrhenius law with `activation energy` $E$.
-The pre-exponential factor `K` is scaled in such a way that $\lambda(-1) = 1/2$ for the
+The pre-exponential factor $K$ is scaled in such a way that $\lambda(-1) = 1/2$ for the
 steady detonation wave with the shock located at $x=0$.
 
 The `frame` can be either `Laboratory` for laboratory frame of reference or
@@ -135,6 +135,7 @@ run `python3 /path/to/main.py` having prepared the `config.yaml` inside your fol
 Here you can find more details on the main problem of interest that is propagation of a
 1D detonation wave in non-uniform media.
 
+![problem](https://user-images.githubusercontent.com/60976834/198550914-4e88a5f4-74df-4cd3-89da-a9ff321297ff.png)
 
 The governing equations are the reactive Euler equations in the shock-attached frame of reference [3,4]
 
