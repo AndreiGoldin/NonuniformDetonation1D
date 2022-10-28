@@ -75,9 +75,9 @@ class Reader:
             callbacks = loaded_p["callbacks"]
             save_tag = ""
             param_tag = ""
-            for (key,value) in {**problem_p, **upstream_p}.items():
-                key = "_".join(map(lambda x: x[:3], key.split(" ")))
+            for (key,value) in {**problem_p, **upstream_p, **{"T":parameters["T"]}}.items():
                 param_tag += f"{key}={value:.2f}, "
+                key = "_".join(map(lambda x: x[:3], key.split(" ")))
                 save_tag += f"_{key}={value:.2f}"
 
             return parameters, callbacks, param_tag[:-2], save_tag

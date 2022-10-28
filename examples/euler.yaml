@@ -22,5 +22,5 @@ callbacks:
   write video: no
   plot final solution: yes
   write final solution: yes
-  plot speed: yes
-  write speed: yes
+  plot speed: no
+  write speed: no

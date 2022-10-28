@@ -17,18 +17,20 @@ class Writer:
         cls.pics_folder = None
         cls.video_folder = None
         if callbacs["write final solution"] or callbacs["write speed"]:
-            cls.data_folder = f'../{problem}_data'
-            Path(f'../{problem}_data').mkdir(parents=True, exist_ok=True)
+            cls.data_folder = f'results/{problem}_data'
+            Path(f'results/{problem}_data').mkdir(parents=True, exist_ok=True)
         if callbacs["plot final solution"] or callbacs["plot speed"]:
-            cls.pics_folder = f'../{problem}_pics'
-            Path(f'../{problem}_pics').mkdir(parents=True, exist_ok=True)
+            cls.pics_folder = f'results/{problem}_pics'
+            Path(f'results/{problem}_pics').mkdir(parents=True, exist_ok=True)
         if callbacs["write video"]:
-            cls.video_folder = f'../{problem}_videos'
-            Path(f'../{problem}_videos').mkdir(parents=True, exist_ok=True)
+            cls.video_folder = f'results/{problem}_videos'
+            Path(f'results/{problem}_videos').mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def write_solution(cls, array, filename):
-        np.savez(os.path.join(cls.data_folder, filename+'.npz'), u=array[:, 3:-3])
+    def write_solution(cls, nodes, array, filename):
+        np.savez(os.path.join(cls.data_folder, filename+'.npz'),
+                 nodes=nodes,
+                 solution=array[:, 3:-3])
 
     @classmethod
     def write_speed(cls, t, D, filename):

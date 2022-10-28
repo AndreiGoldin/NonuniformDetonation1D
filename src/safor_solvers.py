@@ -145,7 +145,10 @@ class ReactiveEulerSAFORSolver(SAFORSolver):
         self.shock_position = [0.]
         self.shock_state = (np.array([1.0, 0.0, 1.0, 0.0]), np.array([0.0,0.0,0.0,0.0]))
         self.parameters = params
-        self.upstream_params = (params["Arho"], params["krho"], params["Alam"], params["klam"])
+        if self.parameters["upstream_cond_type"] != "Uniform":
+            self.upstream_params = (params["Arho"], params["krho"], params["Alam"], params["klam"])
+        else:
+            self.upstream_params = (0., 0., 0., 0.)
 
     def _create_dt_func(self):
         """Returns function to be compiled with njit"""

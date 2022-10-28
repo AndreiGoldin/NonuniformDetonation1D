@@ -5,10 +5,12 @@ import numba as nb
 
 
 class SpaceMethod:
+    """Main class inhereting from which one can add new spatial discretization methods"""
     possible_methods = {}
 
     @classmethod
     def register_method(cls, method_type):
+        """Add new method to the list of all methods"""
         def decorator(subclass):
             cls.possible_methods[method_type] = subclass
             return subclass
@@ -16,6 +18,7 @@ class SpaceMethod:
 
     @classmethod
     def create(cls, method_type, params):
+        """Check that the required method exists and choose the appropriate class"""
         if method_type not in cls.possible_methods:
             raise ValueError(f'Unknown method: {method_type}. Possible options are {list(cls.possible_methods.keys())}.')
         return cls.possible_methods[method_type](params)

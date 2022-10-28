@@ -4,14 +4,14 @@ problem:
     gamma: 1.2
     activation energy: 25.0
     heat release: 50.0
-  frame: Laboratory
+  frame: Shock
   initial: ZND
   boundary: Zero gradient
 domain:
-  left boundary: -10.0
-  right boundary: 100.0
-  nodes: 1001
-  timespan: 12.0
+  left boundary: -30.0
+  right boundary: 0.0
+  nodes: 601
+  timespan: 400.0
 methods:
   space: WENO5M
   time: TVDRK3
@@ -23,5 +23,5 @@ callbacks:
   write video: no
   plot final solution: yes
   write final solution: yes
-  plot speed: no
-  write speed: no
+  plot speed: yes
+  write speed: yes

@@ -17,7 +17,7 @@ def simulate(config_file='config.yaml'):
     solver_type = param_dict['solver_type']
     print(f"You are running the {solver_type} solver with the following parameters: {param_tag}.")
     print(f"The results will be saved in folders {solver_type}_pics, {solver_type}_data, and {solver_type}_video.")
-    print("Give it a few seconds to prepare necessary functions...")
+    print("Give it a few seconds to compile necessary functions...")
 
     time, time_limit, time_out = [0.], param_dict['T'], 0.
     n_image = 0
