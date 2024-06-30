@@ -4,7 +4,7 @@ import yaml
 class Reader:
     def __init__(self, input_format):
         self.supported_formats = ['yaml', 'YAML']
-        self.supported_problems = ["Advection", "Burgers", "Euler", "ReactiveEuler"]
+        self.supported_problems = ["Advection", "Burgers", "Euler", "ReactiveEuler", "NonidealReactiveEuler"]
         if input_format in self.supported_formats:
             self.format = input_format
         else:
@@ -71,6 +71,12 @@ class Reader:
                 parameters["Alam"] = parameters.pop("lambda amplitude")
             if "lambda wavenumber" in parameters:
                 parameters["klam"] = parameters.pop("lambda wavenumber")
+            if "mean friction" in parameters:
+                parameters["mean_friction"] = parameters.pop("mean friction")
+            if "friction amplitude" in parameters:
+                parameters["friction_amp"] = parameters.pop("friction amplitude")
+            if "friction wavenumber" in parameters:
+                parameters["friction_k"] = parameters.pop("friction wavenumber")
 
             callbacks = loaded_p["callbacks"]
             save_tag = ""

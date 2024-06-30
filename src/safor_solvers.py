@@ -244,6 +244,106 @@ class ReactiveEulerSAFORSolver(SAFORSolver):
         self.shock_state = self.calculate_shock_state(self.shock_position[-1], self.upstream_params)
 
 
+@SAFORSolver.register_solver('NonidealReactiveEulerSAFOR')
+class NonidealReactiveEulerSAFORSolver(SAFORSolver):
+    def __init__(self, mesh, params):
+        super().__init__(mesh, equations_type='NonidealReactiveEulerSAFOR',
+                         equation_params=params,
+                         init_cond_type=params["init_cond_type"],
+                         bound_cond_type=params["bound_cond_type"],
+                         upstream_cond_type=params["upstream_cond_type"],
+                         space_method_type=params["space_method"],
+                         time_method_type=params["time_method"])
+        self.shock_speed = [self.equations.parameters['D_CJ']]
+        self.calculate_dt = self._create_dt_func()
+        self.calculate_rhs = self._create_rhs_func(self._calculate_rhs_lfweno5m_safor)
+        self.calculate_shock_speed_rhs = self._create_speed_func()
+        self.time_method = possible_integrators[params["time_method"]](self.calculate_rhs,
+                                                                  self.set_bc,
+                                                                  self.calculate_shock_speed_rhs)
+        self.shock_position = [0.]
+        self.shock_state = (np.array([1.0, 0.0, 1.0, 0.0]), np.array([0.0,0.0,0.0,0.0]))
+        self.parameters = params
+        if self.parameters["upstream_cond_type"] != "Uniform":
+            self.upstream_params = (params["Arho"], params["krho"], params["Alam"], params["klam"])
+        else:
+            self.upstream_params = (0., 0., 0., 0.)
+
+    def _create_dt_func(self):
+        """Returns function to be compiled with njit"""
+        space_step = self.space_step
+        CFL = self.CFL
+        shock_speed = self.shock_speed[-1]
+        jacobian_func = nb.njit(self.equations.calculate_jac_norm(), cache=True)
+        # should have shock_speed as an argument
+        def inner(array):
+            jacobian_norm = jacobian_func(array, shock_speed)
+            dt = CFL*space_step/np.max(jacobian_norm)
+            # dt = 8*space_step**(5/3)
+            # dt = space_step**2
+            return dt
+        return nb.njit(inner, cache=True)
+
+    def _create_speed_func(self):
+        """Returns function to be compiled with njit"""
+        flux_func = nb.njit(self.equations.calculate_fluxes(), cache=True)
+        space_step = self.space_step
+        shock_index = self.shock_index
+        speed_rhs_terms_func = nb.njit(self.speed_rhs_terms, cache=True)
+        gamma = self.equations.parameters['gamma']
+        def inner(array, shock_state, shock_speed):
+            """The right hand side of the shock-change equtaion"""
+            flux = flux_func(array, shock_speed)
+            flux_derivative = (-  12.0 * flux[1,shock_index-5]
+                               +  75.0 * flux[1,shock_index-4]
+                               - 200.0 * flux[1,shock_index-3]
+                               + 300.0 * flux[1,shock_index-2]
+                               - 300.0 * flux[1,shock_index-1]
+                               + 137.0 * flux[1,shock_index]) / (60.0 * space_step)
+            dspeed_dm, friction_force = speed_rhs_terms_func(shock_speed, shock_state, gamma)
+            return -dspeed_dm * (flux_derivative + friction_force)
+        return inner
+
+    @staticmethod
+    def speed_rhs_terms(shock_speed, shock_state, gamma):
+        """The necessary factors to the RHS of the shock-change equation"""
+        shock_state, shock_state_der = shock_state
+        rho_a, u_a, p_a, lambda_a = (
+                shock_state[0],
+                shock_state[1],
+                shock_state[2],
+                shock_state[3],
+            )
+
+        drho_dx, du_dxi, dp_dxi, dlambda_dxi = (
+                shock_state_der[0],
+                shock_state_der[1],
+                shock_state_der[2],
+                shock_state_der[3],
+            )
+
+        speed_dif = shock_speed - u_a
+        nom = ( rho_a * speed_dif * (
+                gamma * (rho_a * u_a * speed_dif - 2.0 * p_a)
+                + rho_a * (2.0 * shock_speed**2 - 3.0 * shock_speed * u_a + u_a**2)))
+        denom = gamma * (2.0 * p_a + rho_a * speed_dif**2) - rho_a * speed_dif**2
+        nom_over_denom_sq = nom / denom**2
+        # The derivative of the momentum at the shock \rho*u|_s w.r.t. the shock velocity D
+        nom_der = nom / speed_dif + rho_a * speed_dif * (
+            gamma * rho_a * u_a + rho_a * (4.0 * shock_speed - 3.0 * u_a))
+        denom_der = 2.0 * rho_a * (gamma - 1.0) * speed_dif
+        dspeed_dm = 1.0 / (nom_der / denom - denom_der * nom_over_denom_sq)
+        # The friction force
+        friction_force = -mean_friction*(1.0 + friction_amp*np.sin(friction_k*shock_position))*rho*u*np.abs(u)/2.0
+        return dspeed_dm, dm_dxi
+
+    def timeintegrate(self):
+        self.solution, new_speed = self.time_method(self.solution, self.dt, self.shock_state, self.shock_speed[-1])
+        self.phys_solution = self.equations.convert_to_phys_vars(self.solution)
+        self.shock_speed.append(new_speed)
+        self.shock_position.append(self.shock_position[-1] + self.dt*self.shock_speed[-1])
+        self.shock_state = self.calculate_shock_state(self.shock_position[-1], self.upstream_params)
+
 @SAFORSolver.register_solver('AdvectionSAFOR')
 class AdvectionSolver(SAFORSolver):
     def __init__(self, mesh, params):

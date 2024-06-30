@@ -602,6 +602,72 @@ class ReactiveEulerSAFOR(Equations):
         return inner
 
 
+@Equations.register_equations('NonidealReactiveEulerSAFOR')
+class NonidealReactiveEulerSAFOR(ReactiveEulerSAFOR):
+    """
+    Physical variables: rho, u, p, lambda
+    Conservative variables: rho, rho*u, rho*(e + u^2/2), rho*lambda
+    """
+    def __init__(self, params: dict):
+        # Prevent the absense of equations' parameters
+        for param in ['act_energy', 'gamma', 'heat_release', 'mean_friction', 'friction_amp', 'friction_k']:
+            if param not in params.keys():
+                raise AttributeError(f'Parameter {param} is not defined for the reactive Euler equations.')
+        self.act_energy = params['act_energy']
+        self.gamma = params['gamma']
+        self.heat_release = params['heat_release']
+        self.mean_friction = params['mean_friction']
+        self.friction_amp = params['friction_amp']
+        self.friction_k = params['friction_k']
+        self.D_CJ = np.sqrt(self.gamma + (self.gamma * self.gamma - 1.0) * self.heat_release / 2.0) + \
+                    np.sqrt( (self.gamma * self.gamma - 1.0) * self.heat_release / 2.0)
+        self.rate_const = self.calculate_rate_const()
+        self.parameters = {**params, **{'rate_const':self.rate_const, 'D_CJ':self.D_CJ} }
+
+    def _calculate_sources(self, array, lab_domain):
+        """ Calculate the right hand side of the equations from the conserved variables"""
+        pressure = (self.gamma - 1) * ( array[2, :]
+            - 0.5 * array[1, :] * array[1, :] / array[0, :]
+            + self.heat_release * array[3, :])
+        source = np.zeros_like(array)
+        source[1, :] = (
+                        - self.mean_friction                                             # - c_f_0
+                        * (1.0 + self.friction_amp*np.sin(self.friction_k * lab_domain)) # (1+\eps*sin(k*\xi))
+                        * array[1, :] * np.abs(array[1, :]/array[0, :]) / 2.0            # \rho u |u| / 2
+                       ) 
+        source[-1, :] = (
+            self.rate_const
+            * (array[0, :] - array[3, :])
+            * np.exp(-self.act_energy * array[0, :] / pressure))
+        return source
+
+    def calculate_sources(self):
+        """Wrapper for the function to be compiled"""
+        gamma = self.gamma
+        heat_release = self.heat_release
+        act_energy = self.act_energy
+        rate_const = self.rate_const
+        mean_friction = self.mean_friction
+        friction_amp = self.friction_amp
+        friction_k = self.friction_k
+        def inner(array, lab_domain):
+            pressure = (gamma - 1) * ( array[2, :]
+                - 0.5 * array[1, :] * array[1, :] / array[0, :]
+                + heat_release * array[3, :])
+            source = np.zeros_like(array)
+            source[1, :] = (
+                        - mean_friction                                            
+                        * (1.0 + friction_amp*np.sin(friction_k * lab_domain)) 
+                        * array[1, :] * np.abs(array[1, :]/array[0, :]) / 2.0  
+                       ) 
+            source[-1, :] = (
+                rate_const
+                * (array[0, :] - array[3, :])
+                * np.exp(-act_energy * array[0, :] / pressure))
+            return source
+        return inner
+
+
 if __name__=='__main__':
     test_parameters = {'rate_const':1., 'act_energy':26., 'heat_release':50., 'gamma':1.2, 'cf':0.01}
     test_nonideal_eqs = NonidealReactiveEuler(test_parameters)
