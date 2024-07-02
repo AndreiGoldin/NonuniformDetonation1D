@@ -515,8 +515,10 @@ class ReactiveEulerSAFOR(Equations):
         flux_array[3, :] = array[1, :] * array[3, :] / array[0, :]
         return flux_array - shock_speed*array
 
-    def _calculate_sources(self, array):
-        """ Calculate the right hand side of the equations from the conserved variables"""
+    def _calculate_sources(self, array, lab_domain):
+        """ Calculate the right hand side of the equations from the conserved variables. 
+            `lab_domain` is for compatibility with equations that need domain in laboratory frame.
+        """
         pressure = (self.gamma - 1) * ( array[2, :]
             - 0.5 * array[1, :] * array[1, :] / array[0, :]
             + self.heat_release * array[3, :])
@@ -565,7 +567,7 @@ class ReactiveEulerSAFOR(Equations):
         heat_release = self.heat_release
         act_energy = self.act_energy
         rate_const = self.rate_const
-        def inner(array):
+        def inner(array, lab_domain):
             pressure = (gamma - 1) * ( array[2, :]
                 - 0.5 * array[1, :] * array[1, :] / array[0, :]
                 + heat_release * array[3, :])
@@ -623,6 +625,7 @@ class NonidealReactiveEulerSAFOR(ReactiveEulerSAFOR):
                     np.sqrt( (self.gamma * self.gamma - 1.0) * self.heat_release / 2.0)
         self.rate_const = self.calculate_rate_const()
         self.parameters = {**params, **{'rate_const':self.rate_const, 'D_CJ':self.D_CJ} }
+        self.parameters['friction'] = [self.mean_friction, self.friction_amp, self.friction_k]
 
     def _calculate_sources(self, array, lab_domain):
         """ Calculate the right hand side of the equations from the conserved variables"""

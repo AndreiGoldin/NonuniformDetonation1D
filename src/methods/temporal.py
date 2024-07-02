@@ -14,7 +14,7 @@ def euler_safor(rhs, set_bc, rhs_speed):
     set_bc = nb.njit(set_bc, cache=True)
     rhs = nb.njit(rhs)
     rhs_speed = nb.njit(rhs_speed, cache=True)
-    def inner(array, dt, ambient, speed):
+    def inner(array, dt, ambient, speed, shock_position):
         update = array + dt*rhs(array, speed)
         upd_speed = speed + dt*rhs_speed(array, ambient, speed)
         update = set_bc(update, ambient, upd_speed)
@@ -52,17 +52,17 @@ def tvd_rk3_safor(rhs, set_bc, rhs_speed):
     set_bc = nb.njit(set_bc, cache=True)
     rhs = nb.njit(rhs)
     rhs_speed = nb.njit(rhs_speed, cache=True)
-    def inner(array, dt, ambient, speed):
-        update = array + dt*rhs(array, speed)
-        upd_speed = speed + dt*rhs_speed(array, ambient, speed)
+    def inner(array, dt, ambient, speed, shock_position):
+        update = array + dt*rhs(array, speed, shock_position)
+        upd_speed = speed + dt*rhs_speed(array, ambient, speed, shock_position)
         update = set_bc(update, ambient, upd_speed)
 
-        update1 = 3./4.*array + 1./4.*update + 1./4.*dt*rhs(update, upd_speed)
-        upd1_speed = 3./4.*speed + 1./4.*upd_speed + 1./4.*dt*rhs_speed(update, ambient, upd_speed)
+        update1 = 3./4.*array + 1./4.*update + 1./4.*dt*rhs(update, upd_speed, shock_position)
+        upd1_speed = 3./4.*speed + 1./4.*upd_speed + 1./4.*dt*rhs_speed(update, ambient, upd_speed, shock_position)
         update1 = set_bc(update1, ambient, upd1_speed)
 
-        update2 = 1./3.*array + 2./3.*update1 + 2./3.*dt*rhs(update1, upd1_speed)
-        upd2_speed = 1./3.*speed + 2./3.*upd1_speed + 2./3.*dt*rhs_speed(update1, ambient, upd1_speed)
+        update2 = 1./3.*array + 2./3.*update1 + 2./3.*dt*rhs(update1, upd1_speed, shock_position)
+        upd2_speed = 1./3.*speed + 2./3.*upd1_speed + 2./3.*dt*rhs_speed(update1, ambient, upd1_speed, shock_position)
         update2 = set_bc(update2, ambient, upd2_speed)
         return update2, upd2_speed
     return nb.njit(inner)

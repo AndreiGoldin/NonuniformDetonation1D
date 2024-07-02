@@ -5,8 +5,9 @@ problem:
     activation energy: 26.0
     heat release: 50.0
     mean friction: 0.01
-    friction amplitude: 0.0
-    friction wavenumber: 0.0
+    friction amplitude: 0.01
+    friction wavenumber: 0.01
+    uniform indent: 100.0
   frame: Shock
   initial: ZND
   boundary: Zero gradient
@@ -21,10 +22,6 @@ methods:
 upstream:
   type: Uniform
   parameters:
-    density amplitude: 0.0
-    density wavenumber: 0.0
-    lambda amplitude: 0.0
-    lambda wavenumber: 0.0
 callbacks:
   write seconds: yes
   write video: no

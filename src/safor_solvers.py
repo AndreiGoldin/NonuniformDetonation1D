@@ -2,6 +2,7 @@
 import numpy as np
 from problems import *
 from  methods import *
+from mesh import Mesh
 
 class SAFORSolver:
     """Main class inhereting from which one can add new solvers"""
@@ -21,11 +22,12 @@ class SAFORSolver:
             raise ValueError(f'Unknown solver: {solver_type}. Possible options are {list(cls.solvers.keys())}.')
         return cls.solvers[solver_type](mesh, params)
 
-    def __init__(self, mesh, equations_type='Burgers', equation_params={},
+    def __init__(self, mesh: Mesh, equations_type='Burgers', equation_params={},
                 frame_type='LFOR', init_cond_type='Sine',
                 bound_cond_type='Zero', upstream_cond_type='RDE',
                 space_method_type='WENO5M', time_method_type='TVDRK3',
                 speed_method_type='None', CFL=0.8):
+        self.mesh = mesh.nodes
         self.equations = Equations.create(equations_type, equation_params)
         self.frame = frame_type
         self.CFL = CFL
@@ -61,18 +63,21 @@ class SAFORSolver:
         spatial_func = nb.njit(self.space_method.flux_approx(), cache=True)
         space_step = self.space_step
         shock_index = self.shock_index
-        def inner(array, shock_speed):
+        mesh = self.mesh
+        def inner(array, shock_speed, shock_position):
             return rhs_method(array, flux_func, source_func,
                     spatial_func, jacobian_func, space_step,
-                    shock_index, shock_speed)
+                    shock_index, shock_speed, shock_position, mesh)
         return inner
 
     @staticmethod
     @nb.njit(cache=True)
     def _calculate_rhs_lfweno5m_safor(array, flux_func, source_func,
-            spatial_func, jacobian_func, space_step, shock_index, shock_speed):
+                                      spatial_func, jacobian_func, space_step, 
+                                      shock_index, shock_speed, shock_position, mesh):
+        lab_domain = shock_position + mesh
         flux = flux_func(array, shock_speed)
-        rhs = source_func(array)
+        rhs = source_func(array, lab_domain)
         jacobian_norm = jacobian_func(array, shock_speed)
         # alpha = np.copy(jacobian_norm)
         # alpha[:-1] = np.maximum(np.abs(jacobian_norm[:-1]), np.abs(jacobian_norm[1:]))
@@ -172,7 +177,7 @@ class ReactiveEulerSAFORSolver(SAFORSolver):
         shock_index = self.shock_index
         speed_rhs_terms_func = nb.njit(self.speed_rhs_terms, cache=True)
         gamma = self.equations.parameters['gamma']
-        def inner(array, shock_state, shock_speed):
+        def inner(array, shock_state, shock_speed, shock_position):
             """The right hand side of the shock-change equtaion"""
             flux = flux_func(array, shock_speed)
             flux_derivative = (-  12.0 * flux[1,shock_index-5]
@@ -237,7 +242,8 @@ class ReactiveEulerSAFORSolver(SAFORSolver):
         return dspeed_dm, dm_dxi
 
     def timeintegrate(self):
-        self.solution, new_speed = self.time_method(self.solution, self.dt, self.shock_state, self.shock_speed[-1])
+        self.solution, new_speed = self.time_method(self.solution, self.dt, self.shock_state, 
+                                                    self.shock_speed[-1], self.shock_position[-1])
         self.phys_solution = self.equations.convert_to_phys_vars(self.solution)
         self.shock_speed.append(new_speed)
         self.shock_position.append(self.shock_position[-1] + self.dt*self.shock_speed[-1])
@@ -246,6 +252,8 @@ class ReactiveEulerSAFORSolver(SAFORSolver):
 
 @SAFORSolver.register_solver('NonidealReactiveEulerSAFOR')
 class NonidealReactiveEulerSAFORSolver(SAFORSolver):
+    # TODO: Read initial data from file, then calculate with uniform friction, 
+    # then with periodic but slowly growing amplitude
     def __init__(self, mesh, params):
         super().__init__(mesh, equations_type='NonidealReactiveEulerSAFOR',
                          equation_params=params,
@@ -284,6 +292,21 @@ class NonidealReactiveEulerSAFORSolver(SAFORSolver):
             return dt
         return nb.njit(inner, cache=True)
 
+    def _create_rhs_func(self, rhs_method):
+        """Returns function to be compiled with njit"""
+        flux_func = nb.njit(self.equations.calculate_fluxes(), cache=True)
+        source_func = nb.njit(self.equations.calculate_sources(), cache=True)
+        jacobian_func = nb.njit(self.equations.calculate_jac_norm(), cache=True)
+        spatial_func = nb.njit(self.space_method.flux_approx(), cache=True)
+        space_step = self.space_step
+        shock_index = self.shock_index
+        mesh = self.mesh
+        def inner(array, shock_speed, shock_position):
+            return rhs_method(array, flux_func, source_func,
+                    spatial_func, jacobian_func, space_step,
+                    shock_index, shock_speed, shock_position, mesh)
+        return inner
+
     def _create_speed_func(self):
         """Returns function to be compiled with njit"""
         flux_func = nb.njit(self.equations.calculate_fluxes(), cache=True)
@@ -291,8 +314,15 @@ class NonidealReactiveEulerSAFORSolver(SAFORSolver):
         shock_index = self.shock_index
         speed_rhs_terms_func = nb.njit(self.speed_rhs_terms, cache=True)
         gamma = self.equations.parameters['gamma']
-        def inner(array, shock_state, shock_speed):
+        friction_params = self.equations.parameters['friction']
+        mean_friction = friction_params[0]
+        friction_amp = friction_params[1]
+        friction_k = friction_params[2]
+        def inner(array, shock_state, 
+                  shock_speed, shock_position):
             """The right hand side of the shock-change equtaion"""
+            shock_momentum = array[1, shock_index]
+            shock_rho = array[0, shock_index]
             flux = flux_func(array, shock_speed)
             flux_derivative = (-  12.0 * flux[1,shock_index-5]
                                +  75.0 * flux[1,shock_index-4]
@@ -300,12 +330,17 @@ class NonidealReactiveEulerSAFORSolver(SAFORSolver):
                                + 300.0 * flux[1,shock_index-2]
                                - 300.0 * flux[1,shock_index-1]
                                + 137.0 * flux[1,shock_index]) / (60.0 * space_step)
-            dspeed_dm, friction_force = speed_rhs_terms_func(shock_speed, shock_state, gamma)
+            dspeed_dm, friction_force = speed_rhs_terms_func(gamma, 
+                                                             shock_speed, shock_state, 
+                                                             shock_position, 
+                                                             shock_momentum, shock_rho, 
+                                                             mean_friction, friction_amp, friction_k)
             return -dspeed_dm * (flux_derivative + friction_force)
         return inner
 
     @staticmethod
-    def speed_rhs_terms(shock_speed, shock_state, gamma):
+    def speed_rhs_terms(gamma, shock_speed, shock_state, shock_position, 
+                        shock_momentum, shock_rho, mean_friction, friction_amp, friction_k):
         """The necessary factors to the RHS of the shock-change equation"""
         shock_state, shock_state_der = shock_state
         rho_a, u_a, p_a, lambda_a = (
@@ -315,13 +350,12 @@ class NonidealReactiveEulerSAFORSolver(SAFORSolver):
                 shock_state[3],
             )
 
-        drho_dx, du_dxi, dp_dxi, dlambda_dxi = (
-                shock_state_der[0],
-                shock_state_der[1],
-                shock_state_der[2],
-                shock_state_der[3],
-            )
-
+        # drho_dx, du_dxi, dp_dxi, dlambda_dxi = (
+        #         shock_state_der[0],
+        #         shock_state_der[1],
+        #         shock_state_der[2],
+        #         shock_state_der[3],
+        #     )
         speed_dif = shock_speed - u_a
         nom = ( rho_a * speed_dif * (
                 gamma * (rho_a * u_a * speed_dif - 2.0 * p_a)
@@ -334,11 +368,14 @@ class NonidealReactiveEulerSAFORSolver(SAFORSolver):
         denom_der = 2.0 * rho_a * (gamma - 1.0) * speed_dif
         dspeed_dm = 1.0 / (nom_der / denom - denom_der * nom_over_denom_sq)
         # The friction force
-        friction_force = -mean_friction*(1.0 + friction_amp*np.sin(friction_k*shock_position))*rho*u*np.abs(u)/2.0
-        return dspeed_dm, dm_dxi
+        friction_force = (-mean_friction
+                          *(1.0 + friction_amp*np.sin(friction_k*shock_position))
+                          *shock_momentum*np.abs(shock_momentum/shock_rho)/2.0)
+        return dspeed_dm, friction_force
 
     def timeintegrate(self):
-        self.solution, new_speed = self.time_method(self.solution, self.dt, self.shock_state, self.shock_speed[-1])
+        self.solution, new_speed = self.time_method(self.solution, self.dt, self.shock_state, 
+                                                    self.shock_speed[-1], self.shock_position[-1])
         self.phys_solution = self.equations.convert_to_phys_vars(self.solution)
         self.shock_speed.append(new_speed)
         self.shock_position.append(self.shock_position[-1] + self.dt*self.shock_speed[-1])
@@ -371,7 +408,7 @@ class AdvectionSolver(SAFORSolver):
         return self.dt
 
     def timeintegrate(self):
-        self.solution, new_speed = self.time_method(self.solution, self.dt, self.shock_state, self.shock_speed[-1])
+        self.solution, new_speed = self.time_method(self.solution, self.dt, self.shock_state, self.shock_speed[-1], self.shock_speed[-1])
         self.phys_solution = self.equations.convert_to_phys_vars(self.solution)
 
 
@@ -401,5 +438,6 @@ class BurgersSolver(SAFORSolver):
         return self.dt
 
     def timeintegrate(self):
-        self.solution, new_speed = self.time_method(self.solution, self.dt, self.shock_state, self.shock_speed[-1])
+        self.solution, new_speed = self.time_method(self.solution, self.dt, self.shock_state, 
+                                                    self.shock_speed[-1], self.shock_speed[-1])
         self.phys_solution = self.equations.convert_to_phys_vars(self.solution)
