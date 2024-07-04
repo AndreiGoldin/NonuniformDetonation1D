@@ -79,6 +79,10 @@ class Reader:
                 parameters["friction_k"] = parameters.pop("friction wavenumber")
             if "indent" in parameters:
                 parameters["indent"] = parameters.pop("indent")
+            if parameters["init_cond_type"] == 'File':
+                if 'filename' not in loaded_p["problem"]:
+                    raise AttributeError('Specify filename for initial conditions in config file.')
+                parameters["filename"] = loaded_p["problem"]["filename"]
 
             callbacks = loaded_p["callbacks"]
             save_tag = ""

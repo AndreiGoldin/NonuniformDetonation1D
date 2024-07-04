@@ -12,10 +12,7 @@ Please execute following commands in the terminal.
 ```
 git clone https://github.com/AndreiGoldin/NonuniformDetonation1D.git
 cd NonuniformDetonation1D
-python3 -m venv solver-env
-source solver-env/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+make install
 ```
 To test the installation run
 ```

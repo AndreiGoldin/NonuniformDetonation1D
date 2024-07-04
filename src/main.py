@@ -21,7 +21,9 @@ def simulate(config_file='config.yaml'):
 
     time, time_limit, time_out = [0.], param_dict['T'], 0.
     n_image = 0
-    mesh = Mesh(param_dict['a'], param_dict['b'], param_dict['N'], 3)
+    n_ghosts = 3
+    param_dict['n_ghosts'] = n_ghosts
+    mesh = Mesh(param_dict['a'], param_dict['b'], param_dict['N'], n_ghosts)
 
     if param_dict['frame'] == 'LFOR':
         solver = Solver.create(param_dict['solver_type'], mesh, param_dict)

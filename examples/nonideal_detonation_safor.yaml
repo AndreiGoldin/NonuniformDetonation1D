@@ -10,6 +10,7 @@ problem:
     indent: 200.0
   frame: Shock
   initial: ZND
+  filename: 
   boundary: Zero gradient
 domain:
   left boundary: -30.0

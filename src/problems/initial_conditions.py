@@ -85,7 +85,11 @@ def initial_shu_osher(nodes, params):
 
 
 def initial_from_file(nodes, params):
-    pass
+    ng = params['n_ghosts']
+    init_cond = np.zeros((4, np.size(nodes)))
+    read_array = np.loadtxt(params['filename'])
+    init_cond[:, ng:-ng] = read_array[:,1:].T
+    return init_cond
 
 
 if __name__=='__main__':

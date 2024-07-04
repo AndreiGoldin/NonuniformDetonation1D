@@ -16,3 +16,9 @@ clean:
 	rm -r *pics *data *videos
 
 .PHONY: typehint test lint checklist black clean
+
+install:
+    python3 -m venv solver-env
+    source solver-env/bin/activate
+    pip install --upgrade pip
+    pip install -r requirements.txt
