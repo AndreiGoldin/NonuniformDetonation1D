@@ -612,20 +612,21 @@ class NonidealReactiveEulerSAFOR(ReactiveEulerSAFOR):
     """
     def __init__(self, params: dict):
         # Prevent the absense of equations' parameters
-        for param in ['act_energy', 'gamma', 'heat_release', 'mean_friction', 'friction_amp', 'friction_k']:
+        for param in ['act_energy', 'gamma', 'heat_release', 'mean_friction', 'friction_amp', 'friction_k', 'indent']:
             if param not in params.keys():
-                raise AttributeError(f'Parameter {param} is not defined for the reactive Euler equations.')
+                raise AttributeError(f'Parameter {param} is not defined for the nonideal reactive Euler equations.')
         self.act_energy = params['act_energy']
         self.gamma = params['gamma']
         self.heat_release = params['heat_release']
         self.mean_friction = params['mean_friction']
         self.friction_amp = params['friction_amp']
         self.friction_k = params['friction_k']
+        self.indent = params['indent']
         self.D_CJ = np.sqrt(self.gamma + (self.gamma * self.gamma - 1.0) * self.heat_release / 2.0) + \
                     np.sqrt( (self.gamma * self.gamma - 1.0) * self.heat_release / 2.0)
         self.rate_const = self.calculate_rate_const()
         self.parameters = {**params, **{'rate_const':self.rate_const, 'D_CJ':self.D_CJ} }
-        self.parameters['friction'] = [self.mean_friction, self.friction_amp, self.friction_k]
+        self.parameters['friction'] = [self.mean_friction, self.friction_amp, self.friction_k, self.indent]
 
     def _calculate_sources(self, array, lab_domain):
         """ Calculate the right hand side of the equations from the conserved variables"""
@@ -633,10 +634,11 @@ class NonidealReactiveEulerSAFOR(ReactiveEulerSAFOR):
             - 0.5 * array[1, :] * array[1, :] / array[0, :]
             + self.heat_release * array[3, :])
         source = np.zeros_like(array)
+        growing_amp = self.friction_amp/(1+np.exp(10/(self.indent)*(-lab_domain+self.indent)))
         source[1, :] = (
-                        - self.mean_friction                                             # - c_f_0
-                        * (1.0 + self.friction_amp*np.sin(self.friction_k * lab_domain)) # (1+\eps*sin(k*\xi))
-                        * array[1, :] * np.abs(array[1, :]/array[0, :]) / 2.0            # \rho u |u| / 2
+                        - self.mean_friction                                                     # - c_f_0
+                        * (1.0 + growing_amp*np.sin(self.friction_k * (lab_domain-self.indent))) # (1+\eps*sin(k*\xi))
+                        * array[1, :] * np.abs(array[1, :]/array[0, :]) / 2.0                    # \rho u |u| / 2
                        ) 
         source[-1, :] = (
             self.rate_const
@@ -653,14 +655,16 @@ class NonidealReactiveEulerSAFOR(ReactiveEulerSAFOR):
         mean_friction = self.mean_friction
         friction_amp = self.friction_amp
         friction_k = self.friction_k
+        indent = self.indent
         def inner(array, lab_domain):
             pressure = (gamma - 1) * ( array[2, :]
                 - 0.5 * array[1, :] * array[1, :] / array[0, :]
                 + heat_release * array[3, :])
             source = np.zeros_like(array)
+            growing_amp = friction_amp/(1+np.exp(10/(indent)*(-lab_domain+indent)))
             source[1, :] = (
                         - mean_friction                                            
-                        * (1.0 + friction_amp*np.sin(friction_k * lab_domain)) 
+                        * (1.0 + growing_amp*np.sin(friction_k * (lab_domain-indent))) 
                         * array[1, :] * np.abs(array[1, :]/array[0, :]) / 2.0  
                        ) 
             source[-1, :] = (

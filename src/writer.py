@@ -31,10 +31,15 @@ class Writer:
         np.savez(os.path.join(cls.data_folder, filename+'.npz'),
                  nodes=nodes,
                  solution=array[:, 3:-3])
+        np.savetxt(os.path.join(cls.data_folder, filename+'.txt'), 
+                   np.concatenate([nodes.reshape([-1,1]), array[:, 3:-3].T], axis=1),
+                   header=(20*' ').join(['nodes', 'density', 'velocity', 'pressure', 'lambda']))
 
     @classmethod
     def write_speed(cls, t, D, filename):
         np.savez(os.path.join(cls.data_folder, filename+'.npz'), time=t, speed=D)
+        np.savetxt(os.path.join(cls.data_folder, filename+'.txt'), 
+                   list(zip(t,D)), header="time"+19*' ' + "speed")
 
     @classmethod
     def plot_solution(cls, mesh, array, time, file_name, dpi=100):

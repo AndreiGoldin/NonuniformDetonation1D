@@ -77,6 +77,8 @@ class Reader:
                 parameters["friction_amp"] = parameters.pop("friction amplitude")
             if "friction wavenumber" in parameters:
                 parameters["friction_k"] = parameters.pop("friction wavenumber")
+            if "indent" in parameters:
+                parameters["indent"] = parameters.pop("indent")
 
             callbacks = loaded_p["callbacks"]
             save_tag = ""

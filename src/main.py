@@ -37,7 +37,7 @@ def simulate(config_file='config.yaml'):
                 print(f't = {time[-1]:.2f}')
             if callbacks["write video"]:
                 Writer.plot_solution(mesh, solver.phys_solution, time[-1], f'image{n_image:03d}')
-            time_out += 0.01
+            time_out += 1
             n_image += 1
 
         dt = solver.calculate_dt(solver.solution)

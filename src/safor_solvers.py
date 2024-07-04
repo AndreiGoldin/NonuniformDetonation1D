@@ -318,6 +318,7 @@ class NonidealReactiveEulerSAFORSolver(SAFORSolver):
         mean_friction = friction_params[0]
         friction_amp = friction_params[1]
         friction_k = friction_params[2]
+        indent = friction_params[3]
         def inner(array, shock_state, 
                   shock_speed, shock_position):
             """The right hand side of the shock-change equtaion"""
@@ -334,13 +335,15 @@ class NonidealReactiveEulerSAFORSolver(SAFORSolver):
                                                              shock_speed, shock_state, 
                                                              shock_position, 
                                                              shock_momentum, shock_rho, 
-                                                             mean_friction, friction_amp, friction_k)
+                                                             mean_friction, friction_amp, 
+                                                             friction_k, indent)
             return -dspeed_dm * (flux_derivative + friction_force)
         return inner
 
     @staticmethod
     def speed_rhs_terms(gamma, shock_speed, shock_state, shock_position, 
-                        shock_momentum, shock_rho, mean_friction, friction_amp, friction_k):
+                        shock_momentum, shock_rho, 
+                        mean_friction, friction_amp, friction_k, indent):
         """The necessary factors to the RHS of the shock-change equation"""
         shock_state, shock_state_der = shock_state
         rho_a, u_a, p_a, lambda_a = (
@@ -368,8 +371,9 @@ class NonidealReactiveEulerSAFORSolver(SAFORSolver):
         denom_der = 2.0 * rho_a * (gamma - 1.0) * speed_dif
         dspeed_dm = 1.0 / (nom_der / denom - denom_der * nom_over_denom_sq)
         # The friction force
+        growing_amp = friction_amp/(1+np.exp(10/(indent)*(-shock_position+indent)))
         friction_force = (-mean_friction
-                          *(1.0 + friction_amp*np.sin(friction_k*shock_position))
+                          *(1.0 + growing_amp*np.sin(friction_k*(shock_position-indent)))
                           *shock_momentum*np.abs(shock_momentum/shock_rho)/2.0)
         return dspeed_dm, friction_force
 

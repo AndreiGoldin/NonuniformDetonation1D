@@ -84,6 +84,10 @@ def initial_shu_osher(nodes, params):
     return init_cond
 
 
+def initial_from_file(nodes, params):
+    pass
+
+
 if __name__=='__main__':
     # Test ZND initial conditions
     rate_const_from_Henrick = 35.955584760859722

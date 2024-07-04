@@ -20,7 +20,8 @@ possible_ic = {
         'ZND_LFOR_halfwave': initial_znd_lfor_halfwave,
         'Sine':initial_sine,
         'Henrick2005':initial_henrick2005,
-        'Shu-Osher':initial_shu_osher
+        'Shu-Osher':initial_shu_osher,
+        'File':initial_from_file
         }
 possible_uc = {
         'RDE': upstream_rde,

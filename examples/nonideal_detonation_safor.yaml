@@ -7,7 +7,7 @@ problem:
     mean friction: 0.01
     friction amplitude: 0.01
     friction wavenumber: 0.01
-    uniform indent: 100.0
+    indent: 200.0
   frame: Shock
   initial: ZND
   boundary: Zero gradient
